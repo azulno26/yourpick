@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'user';
 export type AIModel = 'claude' | 'gpt';
 export type WinnerKey = 'local' | 'empate' | 'visitante';
-export type AnalysisStatus = 'processing' | 'pending' | 'win' | 'loss';
+export type AnalysisStatus = 'pending' | 'win' | 'loss';
 
 export interface User {
   id: string;
