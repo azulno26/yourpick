@@ -1,15 +1,18 @@
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
+'use client';
 
-export default async function RootPage() {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect('/login');
-  }
-  
-  if (user.role === 'admin') {
-    redirect('/admin');
-  } else {
-    redirect('/dashboard');
-  }
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push('/login');
+  }, [router]);
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <p>Redirigiendo...</p>
+    </div>
+  );
 }
