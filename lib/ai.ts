@@ -145,8 +145,34 @@ PESOS ADAPTATIVOS DEL SISTEMA:
 {WEIGHT_CONTEXT}
 Si peso >1.10 = PRIORIZAR ese factor. Si <0.90 = REDUCIR su peso.
 
-FORMATO DE RESPUESTA — SOLO JSON EN UNA LÍNEA, SIN MARKDOWN, SIN COMILLAS TIPOGRÁFICAS:
-{"league":"Liga MX","date":"22 abr 2026","winner":"Tigres","winner_reason":"Frase con dato concreto","winner_key":"visitante","prob_local":33,"prob_empate":27,"prob_visitante":40,"score_1":"1-2","prob_1":18,"score_2":"0-1","prob_2":14,"goals_expected":2.6,"avg_goals_h2h":2.4,"goals_tendency":"Over 2.5","over_under":"Over 2.5","both_teams_score":"Sí","bet_type":"Ganador Directo","best_bet":"Visitante","best_bet_reason":"Razón con cuota implicada y valor","confidence_pct":67,"factors":{"forma":72,"forma_note":"nota","h2h":68,"h2h_note":"nota","local":58,"local_note":"nota","xg":74,"xg_note":"nota","motivacion":78,"motivacion_note":"nota","bajas":62,"bajas_note":"nota","cuotas":65,"cuotas_note":"nota"},"recommended_analysis":"1 o 2 párrafos largos en prosa fundamentando el ganador, over/under o handicap elegido. Cita datos concretos como 'El visitante ha ganado 7 de 10...'. Secciona la lógica por forma, H2H, bajas y cuotas dentro de tu narrativa, sin usar saltos de línea ni formato markdown. Pura prosa convincente.","final_reasoning":"2-3 oraciones que conecten cuantitativo con cualitativo"}
+FORMATO DE RESPUESTA — DEBES RETORNAR SIEMPRE UN JSON EN UNA SOLA LÍNEA CON ESTOS CAMPOS OBLIGATORIOS:
+{
+"league": "Nombre de la liga",
+"date": "Fecha del partido",
+"winner": "Nombre del equipo ganador o 'Empate'",
+"winner_reason": "Breve razón técnica del ganador",
+"winner_key": "local" o "empate" o "visitante",
+"prob_local": 33,
+"prob_empate": 27,
+"prob_visitante": 40,
+"score_1": "2-1",
+"prob_1": 18,
+"score_2": "1-0",
+"prob_2": 14,
+"goals_expected": 2.6,
+"avg_goals_h2h": 2.4,
+"goals_tendency": "Over 2.5",
+"over_under": "Over 2.5",
+"both_teams_score": "Sí",
+"bet_type": "Ganador Directo",
+"best_bet": "VISITANTE" o "OVER 2.5" o similar,
+"best_bet_reason": "Razón con cuota implicada y valor",
+"confidence_pct": 67,
+"factors": {"forma": 72, "forma_note": "...", "h2h": 68, "h2h_note": "...", "local": 58, "local_note": "...", "xg": 74, "xg_note": "...", "motivacion": 78, "motivacion_note": "...", "bajas": 62, "bajas_note": "...", "cuotas": 65, "cuotas_note": "..."},
+"recommended_analysis": "1 o 2 párrafos largos en prosa fundamentando el ganador...",
+"final_reasoning": "2-3 oraciones resumiendo por qué esa es tu predicción final. DEBE SER TEXTO CLARO Y CONCRETO, NO VACÍO."
+}
+IMPORTANTE: NO USAR MARKDOWN, SIN TEXTO EXTRA, SOLO EL JSON EN UNA LÍNEA.
 
 REGLAS:
 1. NUNCA inventes datos
