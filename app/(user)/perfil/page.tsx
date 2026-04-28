@@ -35,7 +35,21 @@ export default function PerfilPage() {
     );
   }
 
-  const { winRate, totalAnalyses, sectionHits } = stats || { winRate: 0, totalAnalyses: 0, sectionHits: {} };
+  const { 
+    winRate, 
+    totalAnalyses, 
+    winner_accuracy, 
+    bet_accuracy, 
+    scoreline_1_accuracy, 
+    scoreline_2_accuracy 
+  } = stats || { 
+    winRate: 0, 
+    totalAnalyses: 0, 
+    winner_accuracy: 0, 
+    bet_accuracy: 0, 
+    scoreline_1_accuracy: 0, 
+    scoreline_2_accuracy: 0 
+  };
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -45,8 +59,8 @@ export default function PerfilPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <StatsCard title="ACIERTOS GLOBALES" value={winRate} suffix="%" />
-        <StatsCard title="TOTAL ANÁLISIS" value={totalAnalyses} />
+        <StatsCard title="ACIERTOS GLOBALES" value={winRate || 0} suffix="%" />
+        <StatsCard title="TOTAL ANÁLISIS" value={totalAnalyses || 0} />
       </div>
 
       <h3 className="font-mono text-xs text-muted uppercase mt-8 mb-2 px-1 tracking-widest">Tasa de Acierto por Sección</h3>
@@ -55,28 +69,28 @@ export default function PerfilPage() {
         <Card className="flex flex-col items-center justify-center py-5 border-border shadow-sm">
           <span className="font-mono text-[10px] text-muted uppercase mb-1">Ganador 1X2</span>
           <span className="font-bebas text-3xl text-text">
-            {sectionHits?.winner !== undefined ? Math.round(sectionHits.winner) : 0}%
+            {winner_accuracy != null ? winner_accuracy.toFixed(1) : '0'}%
           </span>
         </Card>
         
         <Card className="flex flex-col items-center justify-center py-5 border-border shadow-sm">
           <span className="font-mono text-[10px] text-muted uppercase mb-1">Apuesta Recomendada</span>
           <span className="font-bebas text-3xl text-cyan">
-            {sectionHits?.best_bet !== undefined ? Math.round(sectionHits.best_bet) : 0}%
+            {bet_accuracy != null ? bet_accuracy.toFixed(1) : '0'}%
           </span>
         </Card>
         
         <Card className="flex flex-col items-center justify-center py-5 border-border shadow-sm">
           <span className="font-mono text-[10px] text-muted uppercase mb-1">Marcador 1</span>
           <span className="font-bebas text-3xl text-text">
-            {sectionHits?.score_1 !== undefined ? Math.round(sectionHits.score_1) : 0}%
+            {scoreline_1_accuracy != null ? scoreline_1_accuracy.toFixed(1) : '0'}%
           </span>
         </Card>
         
         <Card className="flex flex-col items-center justify-center py-5 border-border shadow-sm">
           <span className="font-mono text-[10px] text-muted uppercase mb-1">Marcador 2</span>
           <span className="font-bebas text-3xl text-text">
-            {sectionHits?.score_2 !== undefined ? Math.round(sectionHits.score_2) : 0}%
+            {scoreline_2_accuracy != null ? scoreline_2_accuracy.toFixed(1) : '0'}%
           </span>
         </Card>
       </div>

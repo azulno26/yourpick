@@ -29,12 +29,10 @@ export async function GET(request: Request) {
     const stats = {
       totalAnalyses: total,
       winRate: total > 0 ? (winnerHits / total) * 100 : 0,
-      sectionHits: {
-        winner: total > 0 ? (winnerHits / total) * 100 : 0,
-        best_bet: total > 0 ? (betHits / total) * 100 : 0,
-        score_1: total > 0 ? (score1Hits / total) * 100 : 0,
-        score_2: total > 0 ? (score2Hits / total) * 100 : 0,
-      }
+      winner_accuracy: total > 0 ? (winnerHits / total) * 100 : 0,
+      bet_accuracy: total > 0 ? (betHits / total) * 100 : 0,
+      scoreline_1_accuracy: total > 0 ? (score1Hits / total) * 100 : 0,
+      scoreline_2_accuracy: total > 0 ? (score2Hits / total) * 100 : 0,
     };
 
     return NextResponse.json(stats);
