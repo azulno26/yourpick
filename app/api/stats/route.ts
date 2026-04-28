@@ -9,64 +9,37 @@ export async function GET(request: Request) {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    if (user.role === 'admin') {
-      const { data: allAnalyses, error } = await supabaseServer.from('analyses').select('*');
-      if (error) throw error;
-      
-      const totalAnalyses = allAnalyses?.length || 0;
-      const evaluated = allAnalyses?.filter(a => a.status !== 'pending') || [];
-      const globalWins = evaluated.filter(a => a.status === 'win').length;
-      
-      const claudeEval = evaluated.filter(a => a.ai_model === 'claude');
-      const gptEval = evaluated.filter(a => a.ai_model === 'gpt');
-
-      const stats = {
-        totalAnalyses,
-        totalEvaluated: evaluated.length,
-        globalWinRate: evaluated.length > 0 ? (globalWins / evaluated.length) * 100 : 0,
-        models: {
-          claude: {
-            total: claudeEval.length,
-            winRate: claudeEval.length > 0 ? (claudeEval.filter(a => a.status === 'win').length / claudeEval.length) * 100 : 0
-          },
-          gpt: {
-            total: gptEval.length,
-            winRate: gptEval.length > 0 ? (gptEval.filter(a => a.status === 'win').length / gptEval.length) * 100 : 0
-          }
-        }
-      };
-      return NextResponse.json(stats);
-    } else {
-      const { data: userAnalyses, error } = await supabaseServer.from('analyses').select('*').eq('user_id', user.sub);
-      if (error) throw error;
-      
-      const totalAnalyses = userAnalyses?.length || 0;
-      const evaluated = userAnalyses?.filter(a => a.status !== 'pending') || [];
-      const wins = evaluated.filter(a => a.status === 'win').length;
-
-      let winnerHits = 0, score1Hits = 0, score2Hits = 0, betHits = 0;
-      evaluated.forEach(a => {
-        if (a.sections_hit?.['Ganador']) winnerHits++;
-        if (a.sections_hit?.['Marcador 1']) score1Hits++;
-        if (a.sections_hit?.['Marcador 2']) score2Hits++;
-        if (a.sections_hit?.['Apuesta']) betHits++;
-      });
-
-      const stats = {
-        totalAnalyses,
-        totalEvaluated: evaluated.length,
-        winRate: evaluated.length > 0 ? (wins / evaluated.length) * 100 : 0,
-        sections: {
-          winner: evaluated.length > 0 ? (winnerHits / evaluated.length) * 100 : 0,
-          score1: evaluated.length > 0 ? (score1Hits / evaluated.length) * 100 : 0,
-          score2: evaluated.length > 0 ? (score2Hits / evaluated.length) * 100 : 0,
-          bet: evaluated.length > 0 ? (betHits / evaluated.length) * 100 : 0,
-        }
-      };
-      return NextResponse.json(stats);
+    const isGlobal = user.role === 'admin';
+    let query = supabaseServer.from('learning_logs').select('*');
+    
+    if (!isGlobal) {
+      query = query.eq('user_id', user.sub);
     }
+
+    const { data: logs, error } = await query;
+    if (error) throw error;
+
+    const total = logs?.length || 0;
+    
+    const winnerHits = logs?.filter(l => l.type === 'winner' && l.prediction_correct === true).length || 0;
+    const betHits = logs?.filter(l => l.bet_correct === true).length || 0;
+    const score1Hits = logs?.filter(l => l.scoreline_1_correct === true).length || 0;
+    const score2Hits = logs?.filter(l => l.scoreline_2_correct === true).length || 0;
+
+    const stats = {
+      totalAnalyses: total,
+      winRate: total > 0 ? (winnerHits / total) * 100 : 0,
+      sectionHits: {
+        winner: total > 0 ? (winnerHits / total) * 100 : 0,
+        best_bet: total > 0 ? (betHits / total) * 100 : 0,
+        score_1: total > 0 ? (score1Hits / total) * 100 : 0,
+        score_2: total > 0 ? (score2Hits / total) * 100 : 0,
+      }
+    };
+
+    return NextResponse.json(stats);
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    console.error('Stats API Error:', err);
+    return NextResponse.json({ error: 'Error al obtener estadísticas reales' }, { status: 500 });
   }
 }
