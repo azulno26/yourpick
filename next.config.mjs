@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    ignoreDuringBuild: true,
+    // La propiedad correcta en Next.js lleva "s" al final: ignoreDuringBuilds
+    ignoreDuringBuilds: true,
   },
 };
 
