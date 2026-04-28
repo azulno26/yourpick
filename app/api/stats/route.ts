@@ -11,16 +11,17 @@ export async function GET(request: Request) {
 
     let query = supabaseServer
       .from('analyses')
-      .select('status, sections_hit, user_id');
+      .select('sections_hit, status, user_id')
+      .neq('status', 'pending'); // Solo los ya evaluados (win o loss)
 
-    // Si no es admin, filtrar por user_id
+    // Si no es admin, filtrar por su user_id
     if (user.role !== 'admin') {
       query = query.eq('user_id', user.sub);
     }
 
     const { data, error } = await query;
 
-    if (error || !data) {
+    if (error || !data || data.length === 0) {
       return NextResponse.json({
         totalAnalyses: 0,
         winRate: 0,
@@ -31,34 +32,21 @@ export async function GET(request: Request) {
       });
     }
 
-    // Filtrar solo los que ya han sido evaluados (status != 'pending')
-    const evaluated = data.filter(a => a.status !== 'pending');
-    const totalCount = data.length;
-    const evaluatedCount = evaluated.length;
+    const total = data.length;
 
-    if (evaluatedCount === 0) {
-      return NextResponse.json({
-        totalAnalyses: totalCount,
-        winRate: 0,
-        winner_accuracy: 0,
-        bet_accuracy: 0,
-        scoreline_1_accuracy: 0,
-        scoreline_2_accuracy: 0,
-      });
-    }
-
-    const winner_hits = evaluated.filter(a => a.sections_hit?.['Ganador'] === true).length;
-    const bet_hits = evaluated.filter(a => a.sections_hit?.['Apuesta'] === true).length;
-    const score1_hits = evaluated.filter(a => a.sections_hit?.['Marcador 1'] === true).length;
-    const score2_hits = evaluated.filter(a => a.sections_hit?.['Marcador 2'] === true).length;
+    // MAPEO EXACTO BASADO EN /HISTORIAL Y EVAL.TS
+    const ganador_aciertos = data.filter(a => a.sections_hit?.['Ganador'] === true).length;
+    const apuesta_aciertos = data.filter(a => a.sections_hit?.['Apuesta'] === true).length;
+    const marcador_1_aciertos = data.filter(a => a.sections_hit?.['Marcador 1'] === true).length;
+    const marcador_2_aciertos = data.filter(a => a.sections_hit?.['Marcador 2'] === true).length;
 
     return NextResponse.json({
-      totalAnalyses: totalCount,
-      winRate: (winner_hits / evaluatedCount) * 100,
-      winner_accuracy: (winner_hits / evaluatedCount) * 100,
-      bet_accuracy: (bet_hits / evaluatedCount) * 100,
-      scoreline_1_accuracy: (score1_hits / evaluatedCount) * 100,
-      scoreline_2_accuracy: (score2_hits / evaluatedCount) * 100,
+      totalAnalyses: total,
+      winRate: (ganador_aciertos / total) * 100,
+      winner_accuracy: (ganador_aciertos / total) * 100,
+      bet_accuracy: (apuesta_aciertos / total) * 100,
+      scoreline_1_accuracy: (marcador_1_aciertos / total) * 100,
+      scoreline_2_accuracy: (marcador_2_aciertos / total) * 100,
     });
   } catch (err) {
     console.error('Stats API Error:', err);
