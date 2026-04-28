@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 import bcrypt from 'bcryptjs';
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {

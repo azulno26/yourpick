@@ -68,21 +68,37 @@ export default function AnalizarPage() {
         body: JSON.stringify({ match })
       });
       
-      const data = await res.json();
-      clearInterval(interval);
+      const initialData = await res.json();
 
       if (!res.ok) {
+        clearInterval(interval);
         if (res.status === 429) setIsAllowed(false);
-        else setError(data.error || 'Hubo un error al generar el análisis.');
+        else setError(initialData.error || 'Hubo un error al iniciar el análisis.');
         setLoading(false);
         return;
       }
 
-      setProgress({ pct: 100, text: '¡Análisis Completado!' });
-      setTimeout(() => {
-        setResult(data);
-        setLoading(false);
-      }, 500);
+      // Iniciar polling
+      const analysisId = initialData.id;
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/analyze/status/${analysisId}`);
+          const statusData = await statusRes.json();
+
+          if (statusRes.ok && statusData.status !== 'processing') {
+            clearInterval(pollInterval);
+            clearInterval(interval); // Detener también el loader simulado
+
+            setProgress({ pct: 100, text: '¡Análisis Completado!' });
+            setTimeout(() => {
+              setResult(statusData);
+              setLoading(false);
+            }, 500);
+          }
+        } catch (pollErr) {
+          console.error('Error in polling:', pollErr);
+        }
+      }, 3000); // Poll cada 3 segundos
 
     } catch (err) {
       clearInterval(interval);

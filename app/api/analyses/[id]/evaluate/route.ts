@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 import { evaluateAnalysis } from '@/lib/eval';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';

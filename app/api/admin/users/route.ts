@@ -3,6 +3,8 @@ import { supabaseServer } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -22,7 +24,7 @@ export async function GET(request: Request) {
 
     const usersWithStats = users.map(u => {
       const userAnalyses = analyses?.filter(a => a.user_id === u.id) || [];
-      const evaluated = userAnalyses.filter(a => a.status !== 'pending');
+      const evaluated = userAnalyses.filter(a => a.status === 'win' || a.status === 'loss');
       const wins = evaluated.filter(a => a.status === 'win').length;
       const todayUsage = usages?.find(us => us.user_id === u.id)?.count || 0;
 

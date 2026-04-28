@@ -1,4 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 import { supabaseServer } from '@/lib/supabase';
 import Link from 'next/link';
 import Card from '@/components/Card';

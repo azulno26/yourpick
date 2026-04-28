@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'user';
 export type AIModel = 'claude' | 'gpt';
 export type WinnerKey = 'local' | 'empate' | 'visitante';
-export type AnalysisStatus = 'pending' | 'win' | 'loss';
+export type AnalysisStatus = 'processing' | 'pending' | 'win' | 'loss';
 
 export interface User {
   id: string;
@@ -43,6 +43,9 @@ export interface Analysis {
   goals_tendency: string;
   both_teams_score: string;
   over_under: string;
+  winner_reason: string | null;
+  best_bet_reason: string | null;
+  recommended_analysis: string | null;
   status: AnalysisStatus;
   real_score: string | null;
   sections_hit: any | null;
