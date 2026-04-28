@@ -1,29 +1,19 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// El secret debe decodificarse en Edge Runtime
-const getJwtSecret = () => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET is not set');
-  return new TextEncoder().encode(secret);
-};
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret');
 
 export async function middleware(request: NextRequest) {
-  console.log('🔍 Middleware invoked for:', request.nextUrl.pathname);
-  console.log('🔑 JWT_SECRET exists:', !!process.env.JWT_SECRET);
-  console.log('🔑 NEXT_PUBLIC_SUPABASE_URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-
-  const { pathname } = request.nextUrl;
-
-  // Rutas públicas permitidas
-  if (pathname === '/' || pathname === '/login' || pathname === '/api/auth/login') {
+  const pathname = request.nextUrl.pathname;
+  
+  // Rutas públicas
+  if (pathname === '/login' || pathname.startsWith('/api/auth') || pathname === '/') {
     return NextResponse.next();
   }
 
-  // Extraer token de las cookies
+  // Verificar JWT en cookie
   const token = request.cookies.get('yp_session')?.value;
-
+  
   if (!token) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -32,34 +22,16 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
-    
-    // Verificación de rutas protegidas de administrador
-    if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-      if (payload.role !== 'admin') {
-        if (pathname.startsWith('/api/')) {
-          return NextResponse.json({ error: 'Prohibido. Acceso exclusivo para administradores.' }, { status: 403 });
-        }
-        return NextResponse.redirect(new URL('/dashboard', request.url)); // O cualquier otra ruta default de user
-      }
-    }
-    
+    await jwtVerify(token, JWT_SECRET);
     return NextResponse.next();
-  } catch (err) {
-    // Si el token falló al verificar (inválido o expirado)
+  } catch (error) {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Sesión expirada o inválida' }, { status: 401 });
+      return NextResponse.json({ error: 'Sesión expirada' }, { status: 401 });
     }
-    // Borrar la cookie corrupta opcionalmente, pero redireccionar a login basta
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete('yp_session');
-    return response;
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
-  matcher: [
-    // Ignorar assets y archivos estáticos de next
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|public).*)'],
 };
