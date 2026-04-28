@@ -10,6 +10,10 @@ const getJwtSecret = () => {
 };
 
 export async function middleware(request: NextRequest) {
+  console.log('🔍 Middleware invoked for:', request.nextUrl.pathname);
+  console.log('🔑 JWT_SECRET exists:', !!process.env.JWT_SECRET);
+  console.log('🔑 NEXT_PUBLIC_SUPABASE_URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+
   const { pathname } = request.nextUrl;
 
   // Rutas públicas permitidas
