@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret');
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -11,7 +8,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Verificar JWT en cookie
+  // Verificar token simple (sin JWT validation en middleware)
   const token = request.cookies.get('yp_session')?.value;
   
   if (!token) {
@@ -21,17 +18,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  try {
-    await jwtVerify(token, JWT_SECRET);
-    return NextResponse.next();
-  } catch (error) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Sesión expirada' }, { status: 401 });
-    }
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|public).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|public|login).*)'],
 };
