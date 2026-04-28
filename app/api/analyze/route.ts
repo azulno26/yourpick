@@ -48,6 +48,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al procesar el análisis de la IA. Por favor, reintenta.' }, { status: 500 });
     }
 
+    // --- VALIDACIÓN DE RESTRICCIÓN ---
+    // Si la IA envía 'over' o 'under' como winner_key (común en pronósticos de goles),
+    // lo cambiamos a 'empate' para respetar el CHECK CONSTRAINT de la base de datos.
+    if (parsed.winner_key === 'over' || parsed.winner_key === 'under') {
+      parsed.winner_key = 'empate';
+    }
+
+    // Validar que winner_key sea uno de los valores permitidos
+    const validWinners = ['local', 'empate', 'visitante'];
+    if (!validWinners.includes(parsed.winner_key)) {
+      parsed.winner_key = 'empate'; // Default seguro
+    }
+    // ---------------------------------
+
     const analysisRecord = {
       user_id: user.sub,
       match_name: match,
@@ -76,6 +90,9 @@ export async function POST(request: Request) {
       goals_tendency: parsed.goals_tendency,
       both_teams_score: parsed.both_teams_score,
       over_under: parsed.over_under,
+      winner_reason: parsed.winner_reason,
+      best_bet_reason: parsed.best_bet_reason,
+      recommended_analysis: parsed.recommended_analysis,
       status: 'pending'
     };
 
@@ -86,7 +103,7 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError || !insertedAnalysis) {
-      console.error('Error insertando en supabase:', insertError);
+      console.error('Error insertando en supabase:', JSON.stringify(insertError, null, 2));
       return NextResponse.json({ error: 'Error al guardar el análisis en la base de datos' }, { status: 500 });
     }
 
