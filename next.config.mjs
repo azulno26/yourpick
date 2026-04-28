@@ -7,6 +7,10 @@ const nextConfig = {
   serverComponentsExternalPackages: [
     'bcryptjs',
     'jose',
+    'resend',
+    '@anthropic-ai/sdk',
+    'openai',
+    '@supabase/supabase-js',
   ],
 };
 
