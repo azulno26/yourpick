@@ -27,7 +27,7 @@ export default async function AdminAprendizajePage() {
           {logs.map((log, i) => {
             const prev = log.weights_before as any;
             const current = log.weights_after as any;
-            const matchName = Array.isArray(log.analyses) ? log.analyses[0]?.match_name : log.analyses?.match_name;
+            const matchName = Array.isArray(log.analyses) ? (log.analyses[0] as any)?.match_name : (log.analyses as any)?.match_name;
             const target_model = log.ai_model;
             const change_reason = log.note;
 
