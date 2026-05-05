@@ -86,8 +86,9 @@ export async function POST(request: Request) {
     }
     if (!parsed.winner_key && parsed.probabilities) {
       const p = parsed.probabilities;
-      if (p.home_win > p.draw && p.home_win > p.away_win) parsed.winner_key = 'local';
-      else if (p.away_win > p.home_win && p.away_win > p.draw) parsed.winner_key = 'visitante';
+      const maxP = Math.max(p.home_win, p.draw, p.away_win);
+      if (maxP === p.home_win) parsed.winner_key = 'local';
+      else if (maxP === p.away_win) parsed.winner_key = 'visitante';
       else parsed.winner_key = 'empate';
     }
 

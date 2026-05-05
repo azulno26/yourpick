@@ -117,7 +117,12 @@ export default function AnalysisResult({ analysis, showSaveButton = false, onSav
           { label: 'X', team: 'Empate', prob: analysis.prob_empate, key: 'empate' },
           { label: '2', team: awayTeam, prob: analysis.prob_visitante, key: 'visitante' },
         ].map((item, idx) => {
-          const isWinner = analysis.winner_key === item.key;
+          const maxProb = Math.max(analysis.prob_local || 0, analysis.prob_empate || 0, analysis.prob_visitante || 0);
+          const mostLikely = 
+            maxProb === analysis.prob_local ? 'local' :
+            maxProb === analysis.prob_visitante ? 'visitante' : 'empate';
+          
+          const isWinner = mostLikely === item.key;
           return (
             <Card key={idx} className={`flex flex-col items-center justify-center p-3 text-center transition-all ${isWinner ? 'border-green/30 bg-surface-2 shadow-lg' : 'border-border/50 opacity-70'}`}>
               <span className={`font-mono text-xs mb-1 ${isWinner ? 'text-green' : 'text-muted'}`}>{item.label}</span>
