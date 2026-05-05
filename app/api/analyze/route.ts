@@ -114,6 +114,17 @@ export async function POST(request: Request) {
       goalsExpectedValue = Number(parsed.goals_expected || 0);
     }
 
+    // Las probabilidades de Claude vienen en decimal (0-1)
+    // NO multiplicar si ya están entre 0-100
+    const homeWin = parsed.probabilities?.home_win || parsed.prob_local || 0;
+    const draw = parsed.probabilities?.draw || parsed.prob_empate || 0;
+    const awayWin = parsed.probabilities?.away_win || parsed.prob_visitante || 0;
+
+    // Si son decimales (menores a 2), multiplicar por 100
+    const pLocalRaw = homeWin > 2 ? homeWin : homeWin * 100;
+    const pEmpateRaw = draw > 2 ? draw : draw * 100;
+    const pVisitanteRaw = awayWin > 2 ? awayWin : awayWin * 100;
+
     const analysisRecord = {
       user_id: user.sub,
       match_name: match,
@@ -123,9 +134,9 @@ export async function POST(request: Request) {
       ai_model_version: aiResponse.version,
       winner: parsed.winner,
       winner_key: parsed.winner_key,
-      prob_local: Math.round((parsed.prob_local || parsed.probabilities?.home_win || 0) * (parsed.prob_local <= 1 ? 100 : 1)),
-      prob_empate: Math.round((parsed.prob_empate || parsed.probabilities?.draw || 0) * (parsed.prob_empate <= 1 ? 100 : 1)),
-      prob_visitante: Math.round((parsed.prob_visitante || parsed.probabilities?.away_win || 0) * (parsed.prob_visitante <= 1 ? 100 : 1)),
+      prob_local: parseFloat(pLocalRaw.toFixed(1)),
+      prob_empate: parseFloat(pEmpateRaw.toFixed(1)),
+      prob_visitante: parseFloat(pVisitanteRaw.toFixed(1)),
       score_1: parsed.score_1,
       prob_1: Math.round((parsed.prob_1 || 0) * (parsed.prob_1 <= 1 ? 100 : 1)),
       score_2: parsed.score_2,
