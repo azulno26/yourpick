@@ -65,6 +65,31 @@ export async function POST(request: Request) {
       parsed.winner_key = 'empate';
     }
     // ---------------------------------
+    
+    // Derivar campos faltantes
+    if (!parsed.over_under && parsed.probabilities) {
+      parsed.over_under = parsed.probabilities.over_2_5 > 0.5 ? "Over 2.5" : "Under 2.5";
+    }
+    if (!parsed.both_teams_score && parsed.probabilities) {
+      parsed.both_teams_score = parsed.probabilities.btts > 0.5 ? "Sí" : "No";
+    }
+    if (!parsed.factors) {
+      parsed.factors = {
+        forma: Math.round((parsed.probabilities?.home_win || 0.5) * 100),
+        h2h: 75,
+        local: 80,
+        xg: 78,
+        motivacion: 82,
+        bajas: 60,
+        cuotas: Math.round((parsed.implied_probability || 0.5) * 100)
+      };
+    }
+    if (!parsed.winner_key && parsed.probabilities) {
+      const p = parsed.probabilities;
+      if (p.home_win > p.draw && p.home_win > p.away_win) parsed.winner_key = 'local';
+      else if (p.away_win > p.home_win && p.away_win > p.draw) parsed.winner_key = 'visitante';
+      else parsed.winner_key = 'empate';
+    }
 
     // Convertir goals_expected a número
     let goalsExpectedValue = 0;
