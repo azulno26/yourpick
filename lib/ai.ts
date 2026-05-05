@@ -257,36 +257,47 @@ FORMATO DE RESPUESTA (OBLIGATORIO)
 Responder SOLO con JSON en una sola línea (sin Markdown, sin texto libre). DEBES incluir TODOS los campos para mantener compatibilidad con el sistema:
 
 {
-  "match": "nombre_partido",
+  "match": "nombre",
   "league": "liga",
-  "date": "fecha_del_partido",
+  "goals_expected": número,
+  "probabilities": {
+    "home_win": número,
+    "draw": número,
+    "away_win": número,
+    "over_2_5": número,
+    "under_2_5": número,
+    "btts": número
+  },
   "winner": "Nombre del equipo que gana o 'Empate'",
   "winner_key": "local|empate|visitante",
-  "prob_local": número_0_a_100,
-  "prob_empate": número_0_a_100,
-  "prob_visitante": número_0_a_100,
   "score_1": "marcador_1",
   "prob_1": número_0_a_100,
   "score_2": "marcador_2",
   "prob_2": número_0_a_100,
-  "goals_expected": número_total_goles_esperados,
-  "avg_goals_h2h": número_promedio_goles_h2h,
-  "goals_tendency": "Over 2.5|Under 2.5",
+  "best_bet": "string",
+  "bet_type": "Tipo de apuesta",
+  "odds": número,
+  "implied_probability": número,
+  "model_probability": número,
+  "expected_value": número,
+  "confidence_pct": número,
+  "risk_level": "low|medium|high",
   "over_under": "Over 2.5|Under 2.5",
   "both_teams_score": "Sí|No",
-  "bet_type": "Tipo de apuesta",
-  "best_bet": "Pick sugerido",
+  "factors": {
+    "forma": 0-100,
+    "h2h": 0-100,
+    "local": 0-100,
+    "xg": 0-100,
+    "motivacion": 0-100,
+    "bajas": 0-100,
+    "cuotas": 0-100
+  },
   "best_bet_reason": "Breve razón del pick con EV",
-  "odds": número_cuota,
-  "implied_probability": número_0_a_100,
-  "model_probability": número_0_a_100,
-  "expected_value": número_ev,
-  "confidence_pct": número_0_a_100,
-  "risk_level": "low|medium|high",
-  "factors": {"forma": 0-100, "h2h": 0-100, "local": 0-100, "xg": 0-100, "motivacion": 0-100, "bajas": 0-100, "cuotas": 0-100},
   "recommended_analysis": "Análisis detallado de 1-2 párrafos",
-  "final_reasoning": "2-3 oraciones resumiendo el valor del pick"
-}`;
+  "final_reasoning": "texto"
+}
+`;
 
 export function getUserPrompt(matchName: string) {
   return `PARTIDO A ANALIZAR: ${matchName}
