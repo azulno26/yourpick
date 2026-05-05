@@ -51,6 +51,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al procesar el análisis de la IA. Por favor, reintenta.' }, { status: 500 });
     }
 
+    console.log('RESPUESTA COMPLETA DE LA IA:', JSON.stringify(parsed, null, 2));
+
     // --- VALIDACIÓN DE RESTRICCIÓN ---
     if (parsed.winner_key === 'over' || parsed.winner_key === 'under') {
       parsed.winner_key = 'empate';
