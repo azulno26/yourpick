@@ -133,6 +133,26 @@ Estado general de la predicción: ${status}`;
 
     if (updateError) return NextResponse.json({ error: 'Error al actualizar análisis final' }, { status: 500 });
 
+    // --- LOG LEARNING PATTERN ---
+    try {
+      const pickType = analysis.bet_type || 'Unknown';
+      const league = analysis.league || 'Unknown';
+      const wasCorrect = status === 'win';
+      const errorPattern = `${pickType.toUpperCase().replace(/\s+/g, '_')}_FAILED_${league.toUpperCase().replace(/\s+/g, '_')}`;
+
+      // Insertar o actualizar frecuencia (aquí simplificado a inserción por simplicidad de historial)
+      await supabaseServer.from('learning_patterns').insert({
+        analysis_id: analysis.id,
+        league,
+        pick_type: pickType,
+        was_correct: wasCorrect,
+        error_pattern: wasCorrect ? null : errorPattern
+      });
+    } catch (learnErr) {
+      console.error('Error logging learning pattern:', learnErr);
+    }
+    // ----------------------------
+
     return NextResponse.json(finalAnalysis);
   } catch (err) {
     console.error(err);

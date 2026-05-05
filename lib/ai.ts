@@ -40,6 +40,22 @@ async function getActivePrompt(): Promise<string> {
   }
 }
 
+async function getLearnedRules(): Promise<string> {
+  try {
+    const { data, error } = await supabaseServer
+      .from('prompt_adjustments')
+      .select('adjustment_rule')
+      .eq('is_active', true);
+
+    if (error || !data || data.length === 0) return '';
+
+    return '\n\n-------------------------------------\nREGLAS APRENDIDAS AUTOMÁTICAMENTE (CRÍTICAS):\n-------------------------------------\n' + 
+      data.map(r => `- ${r.adjustment_rule}`).join('\n');
+  } catch (err) {
+    return '';
+  }
+}
+
 export function parseAnalysisJSON(raw: string): any {
   const tryParse = (str: string) => {
     try {
@@ -299,7 +315,8 @@ export async function generateAnalysis(matchName: string, model: AIModel, weight
   }
 
   const activePrompt = await getActivePrompt();
-  const finalSystemPrompt = activePrompt.replace('{WEIGHT_CONTEXT}', weightContext);
+  const learnedRules = await getLearnedRules();
+  const finalSystemPrompt = activePrompt.replace('{WEIGHT_CONTEXT}', weightContext) + learnedRules;
   const userPrompt = getUserPrompt(matchName);
 
   if (model === 'claude') {

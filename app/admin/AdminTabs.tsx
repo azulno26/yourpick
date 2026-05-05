@@ -10,7 +10,7 @@ export default function AdminTabs() {
     { label: 'Usuarios', href: '/admin/usuarios' },
     { label: 'Análisis', href: '/admin/analisis' },
     { label: 'Modelos', href: '/admin/modelos' },
-    { label: 'Aprendizaje', href: '/admin/aprendizaje' },
+    { label: 'Aprendizaje', href: '/admin/learning-dashboard' },
     { label: 'Sistema', href: '/admin/sistema' },
     { label: 'Prompt', href: '/admin/prompt-editor' }
   ];
