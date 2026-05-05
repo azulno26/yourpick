@@ -112,7 +112,7 @@ export default function LearningDashboardPage() {
               adjustments.map((a) => (
                 <Card key={a.id} className={`p-4 transition-opacity ${a.is_active ? 'opacity-100' : 'opacity-50 border-dashed'}`}>
                   <div className="flex justify-between items-start mb-3">
-                    <Badge variant={a.is_active ? 'green' : 'gray'}>
+                    <Badge variant={a.is_active ? 'green' : 'muted'}>
                       {a.is_active ? 'ACTIVA' : 'INACTIVA'}
                     </Badge>
                     <button 
