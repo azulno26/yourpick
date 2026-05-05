@@ -22,7 +22,9 @@ function AnimatedNumber({ value, suffix = '', duration = 1000 }: { value: number
     window.requestAnimationFrame(step);
   }, [value, duration]);
 
-  const formatted = value % 1 !== 0 ? displayValue.toFixed(1) : Math.round(displayValue);
+  const isDecimal = value <= 1 && value > 0;
+  const currentVal = isDecimal ? displayValue * 100 : displayValue;
+  const formatted = currentVal % 1 !== 0 ? currentVal.toFixed(1) : Math.round(currentVal);
   return <span>{formatted}{suffix}</span>;
 }
 
