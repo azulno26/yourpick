@@ -63,6 +63,16 @@ export async function POST(request: Request) {
     }
     // ---------------------------------
 
+    // Convertir goals_expected a número
+    let goalsExpectedValue = 0;
+    if (typeof parsed.goals_expected === 'number') {
+      goalsExpectedValue = parsed.goals_expected;
+    } else if (typeof parsed.goals_expected === 'object' && parsed.goals_expected?.home) {
+      goalsExpectedValue = (Number(parsed.goals_expected.home) + Number(parsed.goals_expected.away)) / 2;
+    } else {
+      goalsExpectedValue = Number(parsed.goals_expected || 0);
+    }
+
     const analysisRecord = {
       user_id: user.sub,
       match_name: match,
@@ -86,9 +96,7 @@ export async function POST(request: Request) {
       analysis: parsed.analysis,
       final_reasoning: parsed.final_reasoning,
       weights_at_time: weights,
-      goals_expected: typeof parsed.goals_expected === 'object' 
-        ? (Number(parsed.goals_expected?.home || 0) + Number(parsed.goals_expected?.away || 0)) 
-        : Number(parsed.goals_expected || 0),
+      goals_expected: goalsExpectedValue,
       avg_goals_h2h: Number(parsed.avg_goals_h2h || 0),
       goals_tendency: parsed.goals_tendency,
       both_teams_score: parsed.both_teams_score,
