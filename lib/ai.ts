@@ -22,6 +22,24 @@ export async function getModelForToday(): Promise<AIModel> {
   return day % 2 === 0 ? 'claude' : 'gpt';
 }
 
+async function getActivePrompt(): Promise<string> {
+  try {
+    const { data, error } = await supabaseServer
+      .from('prompts')
+      .select('content')
+      .eq('name', 'SCOUT_AI')
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      return SYSTEM_PROMPT_TEMPLATE;
+    }
+    return data.content;
+  } catch (err) {
+    return SYSTEM_PROMPT_TEMPLATE;
+  }
+}
+
 export function parseAnalysisJSON(raw: string): any {
   const tryParse = (str: string) => {
     try {
@@ -280,7 +298,8 @@ export async function generateAnalysis(matchName: string, model: AIModel, weight
       : 'PESOS ADAPTATIVOS: Todos en balance normal (~1.0)';
   }
 
-  const finalSystemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{WEIGHT_CONTEXT}', weightContext);
+  const activePrompt = await getActivePrompt();
+  const finalSystemPrompt = activePrompt.replace('{WEIGHT_CONTEXT}', weightContext);
   const userPrompt = getUserPrompt(matchName);
 
   if (model === 'claude') {
