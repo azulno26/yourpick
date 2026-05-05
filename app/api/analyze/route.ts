@@ -91,6 +91,19 @@ export async function POST(request: Request) {
       else parsed.winner_key = 'empate';
     }
 
+    // Derivar campos faltantes
+    if (!parsed.score_1 || !parsed.score_2) {
+      const homeGoals = Math.round(parsed.goals_expected?.home || 1.5);
+      const awayGoals = Math.round(parsed.goals_expected?.away || 0.8);
+      parsed.score_1 = `${homeGoals}-${awayGoals}`;
+      parsed.score_2 = `${homeGoals > 0 ? homeGoals - 1 : 0}-${awayGoals > 0 ? awayGoals - 1 : 0}`;
+    }
+
+    if (!parsed.avg_goals_h2h) {
+      const totalGoalsExpected = (parsed.goals_expected?.home || 1.5) + (parsed.goals_expected?.away || 0.8);
+      parsed.avg_goals_h2h = parseFloat(totalGoalsExpected.toFixed(2));
+    }
+
     // Convertir goals_expected a número
     let goalsExpectedValue = 0;
     if (typeof parsed.goals_expected === 'number') {
