@@ -51,7 +51,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al procesar el análisis de la IA. Por favor, reintenta.' }, { status: 500 });
     }
 
-    console.log('RESPUESTA COMPLETA DE LA IA:', JSON.stringify(parsed, null, 2));
+    // Logging mejorado
+    console.error('DEBUG: Respuesta de Claude parseada:', JSON.stringify(parsed));
+    console.error('DEBUG: Campos - over_under:', parsed.over_under, 'both_teams_score:', parsed.both_teams_score);
+    console.error('DEBUG: Campos vacíos detectados');
 
     // --- VALIDACIÓN DE RESTRICCIÓN ---
     if (parsed.winner_key === 'over' || parsed.winner_key === 'under') {
