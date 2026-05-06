@@ -126,6 +126,22 @@ export async function POST(request: Request) {
     const pEmpateRaw = draw > 2 ? draw : draw * 100;
     const pVisitanteRaw = awayWin > 2 ? awayWin : awayWin * 100;
 
+    // Determinar bet_type basado en best_bet
+    let final_bet_type = parsed.bet_type || 'unknown';
+    const bestBetLower = (parsed.best_bet || '').toLowerCase();
+
+    if (bestBetLower.includes('over') || bestBetLower.includes('under') || bestBetLower.includes('goles')) {
+      final_bet_type = 'over_under';
+    } else if (bestBetLower.includes('btts') || bestBetLower.includes('ambos')) {
+      final_bet_type = 'btts';
+    } else if (bestBetLower.includes('victoria') || bestBetLower.includes('ganador') || bestBetLower.includes('1x2')) {
+      final_bet_type = '1x2';
+    } else if (bestBetLower.includes('doble') || bestBetLower.includes('oportunidad')) {
+      final_bet_type = 'doble_oportunidad';
+    } else if (bestBetLower.includes('asiático') || bestBetLower.includes('handicap')) {
+      final_bet_type = 'asiatico';
+    }
+
     const analysisRecord = {
       user_id: user.sub,
       match_name: match,
@@ -142,7 +158,7 @@ export async function POST(request: Request) {
       prob_1: Math.round((parsed.prob_1 || 0) * (parsed.prob_1 <= 1 ? 100 : 1)),
       score_2: parsed.score_2,
       prob_2: Math.round((parsed.prob_2 || 0) * (parsed.prob_2 <= 1 ? 100 : 1)),
-      bet_type: parsed.bet_type,
+      bet_type: final_bet_type,
       best_bet: parsed.best_bet,
       confidence_pct: Number(parsed.confidence_pct || 0),
       factors: parsed.factors,
