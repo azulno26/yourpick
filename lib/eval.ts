@@ -1,11 +1,14 @@
 import { Analysis } from './types';
 
 export function evaluateAnalysis(analysis: Analysis, real_score: string) {
-  const match = real_score.match(/^(\d+)\s*[-:]\s*(\d+)$/);
-  if (!match) throw new Error("Marcador real inválido. Formato esperado: 2-1");
+  // 1. Parsear marcador real (ej: "1-2")
+  const parts = real_score.split('-').map(s => s.trim());
+  if (parts.length !== 2) throw new Error("Marcador real inválido. Formato esperado: 2-1");
   
-  const gl = parseInt(match[1], 10);
-  const gv = parseInt(match[2], 10);
+  const gl = parseInt(parts[0], 10);
+  const gv = parseInt(parts[1], 10);
+  if (isNaN(gl) || isNaN(gv)) throw new Error("Marcador real inválido. Formato esperado: 2-1");
+
   const totalGoals = gl + gv;
   const bothScored = gl > 0 && gv > 0;
   
@@ -19,11 +22,12 @@ export function evaluateAnalysis(analysis: Analysis, real_score: string) {
   // 1. Ganador
   sections_hit['Ganador'] = analysis.winner_key === realWinner;
 
-  // 2. Over/Under 2.5
-  if (analysis.over_under) {
-    const isOver = analysis.over_under.toLowerCase().includes('over');
-    sections_hit['Over/Under'] = isOver ? totalGoals > 2.5 : totalGoals <= 2.5;
-  }
+  // 2. Over/Under 2.5 (Lógica solicitada por el usuario)
+  const overUnderHit = 
+    (analysis.over_under === "Over 2.5" && totalGoals > 2.5) ||
+    (analysis.over_under === "Under 2.5" && totalGoals <= 2.5);
+  
+  sections_hit['Over/Under'] = overUnderHit;
 
   // 3. BTTS (Ambos Anotan)
   if (analysis.both_teams_score) {
@@ -49,20 +53,9 @@ export function evaluateAnalysis(analysis: Analysis, real_score: string) {
     else if (bestBetUpper.includes('12')) sections_hit['Apuesta'] = realWinner !== 'empate';
     else sections_hit['Apuesta'] = false;
   } else if (betTypeLower.includes('over') || betTypeLower.includes('under') || betTypeLower.includes('goles')) {
-    const lineMatch = analysis.best_bet.match(/[\d.]+/);
-    if (lineMatch) {
-      const line = parseFloat(lineMatch[0]);
-      const isOver = bestBetUpper.includes('OVER') || bestBetUpper.includes('MÁS') || bestBetUpper.includes('MAS');
-      const isUnder = bestBetUpper.includes('UNDER') || bestBetUpper.includes('MENOS');
-      
-      if (isOver) sections_hit['Apuesta'] = totalGoals > line;
-      else if (isUnder) sections_hit['Apuesta'] = totalGoals < line;
-      else sections_hit['Apuesta'] = false;
-    } else {
-      sections_hit['Apuesta'] = false;
-    }
+    // Si es apuesta de goles, usamos la lógica de Over/Under acertado
+    sections_hit['Apuesta'] = overUnderHit;
   } else if (betTypeLower.includes('asiático') || betTypeLower.includes('asiatico') || betTypeLower.includes('handicap')) {
-    // Para hándicap asiático 0.0 es lo mismo que ganador (simplificado)
     sections_hit['Apuesta'] = sections_hit['Ganador'];
   } else if (betTypeLower.includes('ambos anotan') || betTypeLower.includes('btts')) {
     const indicatesYes = bestBetUpper.includes('SÍ') || bestBetUpper.includes('SI') || bestBetUpper.includes('BTTS');
