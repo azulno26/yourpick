@@ -7,7 +7,19 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function getModelForToday(): Promise<AIModel> {
-  return 'gpt'; // Usa ChatGPT hasta tener crǸditos Anthropic
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const todayStr = formatter.format(new Date());
+  const { data } = await supabaseServer
+    .from('ai_assignment_override')
+    .select('forced_model')
+    .eq('date', todayStr)
+    .single();
+  if (data && data.forced_model) {
+    return data.forced_model as AIModel;
+  }
+  const dateParts = todayStr.split('-');
+  const day = parseInt(dateParts[2], 10);
+  return day % 2 === 0 ? 'claude' : 'gpt';
 }
 
 async function getActivePrompt(): Promise<string> {
