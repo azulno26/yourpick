@@ -56,15 +56,6 @@ export async function POST(request: Request) {
     console.error('DEBUG: Campos - over_under:', parsed.over_under, 'both_teams_score:', parsed.both_teams_score);
     console.error('DEBUG: Campos vacíos detectados');
 
-    // --- VALIDACIÓN DE RESTRICCIÓN ---
-    if (parsed.winner_key === 'over' || parsed.winner_key === 'under') {
-      parsed.winner_key = 'empate';
-    }
-    const validWinners = ['local', 'empate', 'visitante'];
-    if (!validWinners.includes(parsed.winner_key)) {
-      parsed.winner_key = 'empate';
-    }
-    // ---------------------------------
     
     // Derivar campos faltantes
     if (!parsed.over_under && parsed.probabilities) {
@@ -122,6 +113,15 @@ export async function POST(request: Request) {
       awayWin: (parsed.probabilities?.away_win || 0) > 1 ? parsed.probabilities?.away_win : (parsed.probabilities?.away_win || 0) * 100,
       calculatedWinner: parsed.winner_key
     });
+
+    // 2. VALIDAR DESPUÉS
+    if (parsed.winner_key === 'over' || parsed.winner_key === 'under') {
+      parsed.winner_key = 'empate';
+    }
+    const validWinners = ['local', 'empate', 'visitante'];
+    if (!validWinners.includes(parsed.winner_key)) {
+      parsed.winner_key = 'empate';
+    }
 
     // Derivar campos faltantes
     if (!parsed.score_1 || !parsed.score_2) {
