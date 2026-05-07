@@ -337,18 +337,33 @@ export async function generateAnalysis(matchName: string, model: AIModel, weight
   const userPrompt = getUserPrompt(matchName);
 
   if (model === 'claude') {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2000,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 } as any],
-      system: finalSystemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
+    console.error('ANTES DE LLAMAR CLAUDE:', {
+      modelo: 'claude-haiku-4-5-20251001',
+      timestamp: new Date().toISOString(),
+      nota: 'Si falla aquǸ, verificar crǸditos Anthropic'
     });
-    const text = response.content
-      .filter((b: any) => b.type === 'text')
-      .map((b: any) => b.text)
-      .join('');
-    return { text, version: 'claude-sonnet-4-5-20250929' };
+
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 } as any],
+        system: finalSystemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      });
+      const text = response.content
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('');
+      return { text, version: 'claude-haiku-4-5-20251001' };
+    } catch (error: any) {
+      console.error('ERROR LLAMANDO CLAUDE:', {
+        status: error.status,
+        message: error.message,
+        tipo: 'CREDITOS_AGOTADOS_O_ERROR_API'
+      });
+      throw error;
+    }
   } else {
     // @ts-ignore
     const response = await openai.responses.create({
