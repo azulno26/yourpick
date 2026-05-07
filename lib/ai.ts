@@ -274,7 +274,7 @@ Responder SOLO con JSON en una sola línea (sin Markdown, sin texto libre). DEBE
     "btts": número
   },
   "winner": "Nombre del equipo que gana o 'Empate'",
-  "winner_key": "local|empate|visitante",
+  "winner_key": "local|empate|visitante (el resultado más probable)",
   "score_1": "marcador_más_probable_usando_Poisson",
   "prob_1": número_0_a_100,
   "score_2": "segundo_marcador_más_probable_usando_Poisson",
