@@ -337,10 +337,11 @@ export async function generateAnalysis(matchName: string, model: AIModel, weight
   const userPrompt = getUserPrompt(matchName);
 
   if (model === 'claude') {
-    console.error('ANTES DE LLAMAR CLAUDE:', {
-      modelo: 'claude-haiku-4-5-20251001',
-      timestamp: new Date().toISOString(),
-      nota: 'Si falla aquǸ, verificar crǸditos Anthropic'
+    console.error('PROMPT ENVIADO A CLAUDE:', {
+      modelo: 'haiku',
+      promptLength: finalSystemPrompt.length,
+      userPromptLength: userPrompt.length,
+      timestamp: new Date().toISOString()
     });
 
     try {
