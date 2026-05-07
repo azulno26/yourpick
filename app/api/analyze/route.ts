@@ -86,11 +86,19 @@ export async function POST(request: Request) {
     }
     if (!parsed.winner_key && parsed.probabilities) {
       const p = parsed.probabilities;
-      const maxP = Math.max(p.home_win, p.draw, p.away_win);
-      if (maxP === p.home_win) parsed.winner_key = 'local';
-      else if (maxP === p.away_win) parsed.winner_key = 'visitante';
+      // Convertir a porcentaje si son decimales
+      const homeWin = p.home_win > 1 ? p.home_win : p.home_win * 100;
+      const draw = p.draw > 1 ? p.draw : p.draw * 100;
+      const awayWin = p.away_win > 1 ? p.away_win : p.away_win * 100;
+      
+      const maxP = Math.max(homeWin, draw, awayWin);
+      
+      if (maxP === homeWin) parsed.winner_key = 'local';
+      else if (maxP === awayWin) parsed.winner_key = 'visitante';
       else parsed.winner_key = 'empate';
     }
+
+    console.error('WINNER_KEY CALCULADO:', parsed.winner_key, 'desde probs:', parsed.probabilities);
 
     // Derivar campos faltantes
     if (!parsed.score_1 || !parsed.score_2) {
