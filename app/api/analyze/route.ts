@@ -142,7 +142,7 @@ export async function POST(request: Request) {
       final_bet_type = 'asiatico';
     }
 
-    const analysisRecord = {
+    const analysisData = {
       user_id: user.sub,
       match_name: match,
       league: parsed.league,
@@ -178,16 +178,16 @@ export async function POST(request: Request) {
 
     console.error('DATOS A GUARDAR:', {
       best_bet: parsed.best_bet,
-      winner_key: analysisRecord.winner_key,
-      score_1: analysisRecord.score_1,
-      score_2: analysisRecord.score_2,
-      over_under: analysisRecord.over_under,
-      both_teams_score: analysisRecord.both_teams_score
+      winner_key: analysisData.winner_key,
+      score_1: analysisData.score_1,
+      score_2: analysisData.score_2,
+      over_under: analysisData.over_under,
+      both_teams_score: analysisData.both_teams_score
     });
 
     const { data: insertedAnalysis, error: insertError } = await supabaseServer
       .from('analyses')
-      .insert([analysisRecord])
+      .insert([analysisData])
       .select()
       .single();
 
