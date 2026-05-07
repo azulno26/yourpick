@@ -176,6 +176,16 @@ export async function POST(request: Request) {
       status: 'pending'
     };
 
+    console.error('DEBUG - ANTES DE GUARDAR:', {
+      best_bet: parsed.best_bet,
+      winner_key: parsed.winner_key,
+      score_1: parsed.score_1,
+      score_2: parsed.score_2,
+      real_score: null, // No hay marcador real aún en un nuevo análisis
+      over_under: parsed.over_under,
+      both_teams_score: parsed.both_teams_score
+    });
+
     const { data: insertedAnalysis, error: insertError } = await supabaseServer
       .from('analyses')
       .insert([analysisRecord])
