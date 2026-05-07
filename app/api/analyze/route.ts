@@ -91,12 +91,13 @@ export async function POST(request: Request) {
       const draw = p.draw > 1 ? p.draw : p.draw * 100;
       const awayWin = p.away_win > 1 ? p.away_win : p.away_win * 100;
       
-      // SOLO comparar las 3 probabilidades de resultado
-      const maxP = Math.max(homeWin, draw, awayWin);
-      
-      if (maxP === homeWin) parsed.winner_key = 'local';
-      else if (maxP === awayWin) parsed.winner_key = 'visitante';
-      else parsed.winner_key = 'empate';
+      const sorted = [
+        { val: homeWin, winner: 'local' },
+        { val: draw, winner: 'empate' },
+        { val: awayWin, winner: 'visitante' }
+      ].sort((a, b) => b.val - a.val);
+
+      parsed.winner_key = sorted[0].winner;
     }
 
     console.error('WINNER_KEY DEBUG:', {
