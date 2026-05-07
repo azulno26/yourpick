@@ -91,6 +91,7 @@ export async function POST(request: Request) {
       const draw = p.draw > 1 ? p.draw : p.draw * 100;
       const awayWin = p.away_win > 1 ? p.away_win : p.away_win * 100;
       
+      // SOLO comparar las 3 probabilidades de resultado
       const maxP = Math.max(homeWin, draw, awayWin);
       
       if (maxP === homeWin) parsed.winner_key = 'local';
@@ -98,7 +99,12 @@ export async function POST(request: Request) {
       else parsed.winner_key = 'empate';
     }
 
-    console.error('WINNER_KEY CALCULADO:', parsed.winner_key, 'desde probs:', parsed.probabilities);
+    console.error('WINNER_KEY DEBUG:', {
+      homeWin: (parsed.probabilities?.home_win || 0) > 1 ? parsed.probabilities?.home_win : (parsed.probabilities?.home_win || 0) * 100,
+      draw: (parsed.probabilities?.draw || 0) > 1 ? parsed.probabilities?.draw : (parsed.probabilities?.draw || 0) * 100,
+      awayWin: (parsed.probabilities?.away_win || 0) > 1 ? parsed.probabilities?.away_win : (parsed.probabilities?.away_win || 0) * 100,
+      calculatedWinner: parsed.winner_key
+    });
 
     // Derivar campos faltantes
     if (!parsed.score_1 || !parsed.score_2) {
