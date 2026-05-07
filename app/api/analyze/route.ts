@@ -90,12 +90,28 @@ export async function POST(request: Request) {
       const homeWin = p.home_win > 1 ? p.home_win : p.home_win * 100;
       const draw = p.draw > 1 ? p.draw : p.draw * 100;
       const awayWin = p.away_win > 1 ? p.away_win : p.away_win * 100;
-      
+      console.error('VALORES PRE-SORT:', {
+        homeWinRaw: p.home_win,
+        drawRaw: p.draw,
+        awayWinRaw: p.away_win,
+        homeWinNorm: homeWin,
+        drawNorm: draw,
+        awayWinNorm: awayWin,
+        typeof_homeWin: typeof homeWin,
+        typeof_draw: typeof draw,
+        typeof_awayWin: typeof awayWin
+      });
+
       const sorted = [
         { val: homeWin, winner: 'local' },
         { val: draw, winner: 'empate' },
         { val: awayWin, winner: 'visitante' }
       ].sort((a, b) => b.val - a.val);
+
+      console.error('DESPUÉS DEL SORT:', {
+        sorted: sorted.map(s => ({ val: s.val, winner: s.winner })),
+        winner_selected: sorted[0].winner
+      });
 
       parsed.winner_key = sorted[0].winner;
     }
