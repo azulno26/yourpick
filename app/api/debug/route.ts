@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
-
 export async function GET() {
-  try {
-    const { data: users, error } = await supabaseServer
-      .from('users')
-      .select('id, username, role, display_name, password_hash, is_active');
-    return NextResponse.json({ users, error });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) });
-  }
+  return NextResponse.json({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    key: process.env.SUPABASE_SECRET_KEY,
+    anon: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  });
 }
