@@ -24,7 +24,7 @@ export default async function AdminAprendizajePage() {
         </Card>
       ) : (
         <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
-          {logs.map((log, i) => {
+          {logs.map((log) => {
             const prev = log.weights_before as any;
             const current = log.weights_after as any;
             const matchName = Array.isArray(log.analyses) ? (log.analyses[0] as any)?.match_name : (log.analyses as any)?.match_name;
@@ -34,11 +34,13 @@ export default async function AdminAprendizajePage() {
             return (
               <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                 <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-bg bg-surface-2 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow z-10">
-                  <span className="text-sm">{target_model === 'claude' ? '⚡' : '🤖'}</span>
+                  <span className="text-sm">{target_model === 'gpt' ? 'GPT' : 'Legacy'}</span>
                 </div>
                 <Card className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] hover:border-cyan/30 transition-colors p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <Badge variant={target_model === 'claude' ? 'purple' : 'green'}>{target_model.toUpperCase()}</Badge>
+                    <Badge variant={target_model === 'gpt' ? 'green' : 'muted'}>
+                      {target_model === 'gpt' ? 'GPT-4o' : 'Legacy'}
+                    </Badge>
                     <span className="font-mono text-xs text-muted">{new Date(log.created_at).toLocaleDateString()}</span>
                   </div>
                   <div className="font-bebas text-xl text-text mb-2">{matchName || 'Evaluación General'}</div>

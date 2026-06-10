@@ -10,7 +10,6 @@ export default function LearningDashboardPage() {
   const [adjustments, setAdjustments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [learning, setLearning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -19,18 +18,12 @@ export default function LearningDashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const resPatterns = await fetch('/api/admin/learning/patterns'); // I need to create this or use a general endpoint
-      const resAdjustments = await fetch('/api/admin/learning/adjustments'); // Same here
-      
-      // Since I haven't created these yet, I'll use a direct fetch to Supabase or create a route
-      // For now, I'll create a dedicated API for the dashboard
       const res = await fetch('/api/admin/learning/data');
       const data = await res.json();
       
       setPatterns(data.patterns || []);
       setAdjustments(data.adjustments || []);
-    } catch (err) {
-      setError('Error al cargar datos de aprendizaje');
+    } catch {
     } finally {
       setLoading(false);
     }

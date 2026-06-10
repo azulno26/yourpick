@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
-import Badge from '@/components/Badge';
 
 export default function PromptEditorPage() {
   const [prompt, setPrompt] = useState('');

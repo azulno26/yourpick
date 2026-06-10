@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
-
-export const dynamic = 'force-dynamic';
 import { evaluateAnalysis } from '@/lib/eval';
-import Anthropic from '@anthropic-ai/sdk';
+import { ACTIVE_AI_MODEL, OPENAI_ANALYSIS_MODEL } from '@/lib/ai';
 import OpenAI from 'openai';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+export const dynamic = 'force-dynamic';
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -23,7 +22,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .select('*')
       .eq('id', params.id)
       .single();
-    
+
     if (fetchError || !analysis) return NextResponse.json({ error: 'Análisis no encontrado' }, { status: 404 });
 
     if (user.role !== 'admin' && analysis.user_id !== user.sub) {
@@ -38,64 +37,47 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     const { sections_hit, status } = evalResult;
-
-    const prompt = `Analiza este pronóstico vs resultado real. Ajusta los pesos. Devuelve JSON exclusivo con esta estructura: { "weights": { "forma": 1.05, "h2h": 0.95, ... }, "note": "Breve explicación de 1 oración del ajuste" }
+    const prompt = `Analiza este pronóstico vs resultado real. Ajusta los pesos. Devuelve JSON exclusivo con esta estructura: { "weights": { "forma": 1.05, "h2h": 0.95, "local": 1.00, "xg": 1.10, "motivacion": 0.98, "bajas": 1.02, "cuotas": 1.00 }, "note": "Breve explicación de 1 oración del ajuste" }
 Pronóstico inicial (factores): ${JSON.stringify(analysis.factors)}
 Marcador real ocurrido: ${real_score}
 Estado general de la predicción: ${status}`;
 
     let suggestedWeights: Record<string, number> | null = null;
-    let aiNote = "Evaluación automática completada.";
+    let aiNote = 'Evaluación automática completada.';
 
     try {
-      if (analysis.ai_model === 'claude') {
-        const response = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }]
-        });
-        const text = response.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
-        const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
-        if (parsed.weights) {
-          suggestedWeights = parsed.weights;
-          aiNote = parsed.note || "Ajustes sugeridos por Claude.";
-        }
-      } else {
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' }
-        });
-        const text = response.choices[0].message.content || '{}';
-        const parsed = JSON.parse(text);
-        if (parsed.weights) {
-          suggestedWeights = parsed.weights;
-          aiNote = parsed.note || "Ajustes sugeridos por GPT-4o.";
-        }
+      const response = await openai.chat.completions.create({
+        model: OPENAI_ANALYSIS_MODEL,
+        temperature: 0.2,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      });
+      const text = response.choices[0].message.content || '{}';
+      const parsed = JSON.parse(text);
+      if (parsed.weights) {
+        suggestedWeights = parsed.weights;
+        aiNote = parsed.note || 'Ajustes sugeridos por GPT-4o.';
       }
     } catch (e) {
-      console.error("Error en evaluación IA post-partido (ignorando...):", e);
+      console.error('Error en evaluación IA post-partido (ignorando...):', e);
     }
 
     if (suggestedWeights) {
       const { data: sysWeights } = await supabaseServer
         .from('system_weights')
         .select('*')
-        .eq('id', analysis.ai_model)
+        .eq('id', ACTIVE_AI_MODEL)
         .single();
-      
+
       if (sysWeights) {
         const currentWeights = sysWeights.weights || {};
         const newWeights: Record<string, number> = {};
-        
         const allKeys = new Set([...Object.keys(currentWeights), ...Object.keys(suggestedWeights)]);
-        
+
         for (const key of allKeys) {
           const current = typeof currentWeights[key] === 'number' ? currentWeights[key] : 1.0;
           const suggested = typeof suggestedWeights[key] === 'number' ? suggestedWeights[key] : 1.0;
-          
-          let newValue = (current * 0.7) + (suggested * 0.3);
-          newValue = Math.max(0.5, Math.min(2.0, newValue));
+          const newValue = Math.max(0.5, Math.min(2.0, (current * 0.7) + (suggested * 0.3)));
           newWeights[key] = Number(newValue.toFixed(3));
         }
 
@@ -103,12 +85,12 @@ Estado general de la predicción: ${status}`;
           weights: newWeights,
           total_iterations: (sysWeights.total_iterations || 0) + 1,
           last_learning_note: aiNote
-        }).eq('id', analysis.ai_model);
+        }).eq('id', ACTIVE_AI_MODEL);
 
         await supabaseServer.from('learning_log').insert({
           analysis_id: analysis.id,
           user_id: user.sub,
-          ai_model: analysis.ai_model,
+          ai_model: ACTIVE_AI_MODEL,
           weights_before: currentWeights,
           weights_after: newWeights,
           note: aiNote
@@ -133,14 +115,12 @@ Estado general de la predicción: ${status}`;
 
     if (updateError) return NextResponse.json({ error: 'Error al actualizar análisis final' }, { status: 500 });
 
-    // --- LOG LEARNING PATTERN ---
     try {
       const pickType = analysis.bet_type || 'Unknown';
       const league = analysis.league || 'Unknown';
       const wasCorrect = status === 'win';
       const errorPattern = `${pickType.toUpperCase().replace(/\s+/g, '_')}_FAILED_${league.toUpperCase().replace(/\s+/g, '_')}`;
 
-      // Insertar o actualizar frecuencia (aquí simplificado a inserción por simplicidad de historial)
       await supabaseServer.from('learning_patterns').insert({
         analysis_id: analysis.id,
         league,
@@ -151,7 +131,6 @@ Estado general de la predicción: ${status}`;
     } catch (learnErr) {
       console.error('Error logging learning pattern:', learnErr);
     }
-    // ----------------------------
 
     return NextResponse.json(finalAnalysis);
   } catch (err) {

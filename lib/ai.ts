@@ -1,26 +1,28 @@
 import { supabaseServer } from './supabase';
 import { AIModel } from './types';
-import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function getModelForToday(): Promise<AIModel> {
-  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' });
-  const todayStr = formatter.format(new Date());
-  const { data } = await supabaseServer
-    .from('ai_assignment_override')
-    .select('forced_model')
-    .eq('date', todayStr)
-    .single();
-  if (data && data.forced_model) {
-    return data.forced_model as AIModel;
-  }
-  const dateParts = todayStr.split('-');
-  const day = parseInt(dateParts[2], 10);
-  return day % 2 === 0 ? 'claude' : 'gpt';
-}
+export const ACTIVE_AI_MODEL: AIModel = 'gpt';
+export const OPENAI_ANALYSIS_MODEL = 'gpt-4o';
+
+const UNIFORM_OUTPUT_RULES = `
+
+-------------------------------------
+REGLAS DE COMPATIBILIDAD DEL SISTEMA
+-------------------------------------
+Debes responder un solo objeto JSON valido y completo.
+Usa siempre estos valores normalizados:
+- winner_key: "local", "empate" o "visitante".
+- bet_type: "1x2", "over_under", "btts", "doble_oportunidad" o "asiatico".
+- probabilities.*: numeros de 0 a 100, no decimales 0-1.
+- prob_1, prob_2, confidence_pct y factors.*: numeros de 0 a 100.
+- both_teams_score: "Sí" o "No".
+- over_under: "Over 2.5" o "Under 2.5".
+- score_1 y score_2: formato "N-N".
+No agregues texto fuera del JSON.
+`;
 
 async function getActivePrompt(): Promise<string> {
   try {
@@ -321,7 +323,7 @@ INSTRUCCIONES:
 Recuerda: el usuario paga por este análisis.`;
 }
 
-export async function generateAnalysis(matchName: string, model: AIModel, weights: any) {
+export async function generateAnalysis(matchName: string, _model: AIModel, weights: any) {
   let weightContext = '';
   if (weights && typeof weights === 'object') {
     const parts: string[] = [];
@@ -337,57 +339,25 @@ export async function generateAnalysis(matchName: string, model: AIModel, weight
 
   const activePrompt = await getActivePrompt();
   const learnedRules = await getLearnedRules();
-  const finalSystemPrompt = activePrompt.replace('{WEIGHT_CONTEXT}', weightContext) + learnedRules;
+  const finalSystemPrompt = activePrompt.replace('{WEIGHT_CONTEXT}', weightContext) + learnedRules + UNIFORM_OUTPUT_RULES;
   const userPrompt = getUserPrompt(matchName);
 
-  if (model === 'claude') {
-    console.error('PROMPT ENVIADO A CLAUDE:', {
-      modelo: 'haiku',
-      promptLength: finalSystemPrompt.length,
-      userPromptLength: userPrompt.length,
-      timestamp: new Date().toISOString()
-    });
-
-    try {
-      const response = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 } as any],
-        system: finalSystemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      });
-      const text = response.content
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('');
-      return { text, version: 'claude-haiku-4-5-20251001' };
-    } catch (error: any) {
-      console.error('ERROR LLAMANDO CLAUDE:', {
-        status: error.status,
-        message: error.message,
-        tipo: 'CREDITOS_AGOTADOS_O_ERROR_API'
-      });
-      throw error;
-    }
-  } else {
-    // @ts-ignore
-    const response = await openai.responses.create({
-      model: 'gpt-4o',
-      tools: [{ type: 'web_search_preview' }],
-      input: [
-        { role: 'system', content: finalSystemPrompt },
-        { role: 'user', content: userPrompt }
-      ]
-    });
-    let text = '';
-    // @ts-ignore
-    for (const item of response.output) {
-      if (item.type === 'message') {
-        for (const c of item.content) {
-          if (c.type === 'output_text') text += c.text;
-        }
+  const response = await openai.responses.create({
+    model: OPENAI_ANALYSIS_MODEL,
+    temperature: 0.2,
+    tools: [{ type: 'web_search_preview' }],
+    input: [
+      { role: 'system', content: finalSystemPrompt },
+      { role: 'user', content: userPrompt }
+    ]
+  });
+  let text = '';
+  for (const item of response.output) {
+    if (item.type === 'message') {
+      for (const c of item.content) {
+        if (c.type === 'output_text') text += c.text;
       }
     }
-    return { text, version: 'gpt-4o' };
   }
+  return { text, version: OPENAI_ANALYSIS_MODEL };
 }

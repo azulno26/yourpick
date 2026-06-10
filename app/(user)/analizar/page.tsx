@@ -28,7 +28,7 @@ export default function AnalizarPage() {
   useEffect(() => {
     fetch('/api/stats')
       .then(res => res.json())
-      .then(data => {
+      .then(() => {
         // user stats return totalAnalyses, etc.
         // But we actually need daily usage... Wait, our stats API doesn't return today's usage for standard users.
         // But the POST /api/analyze handles the 429 logic.

@@ -1,9 +1,96 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
-import { getModelForToday, generateAnalysis, parseAnalysisJSON } from '@/lib/ai';
+import { ACTIVE_AI_MODEL, generateAnalysis, parseAnalysisJSON } from '@/lib/ai';
 
 export const dynamic = 'force-dynamic';
+
+const FACTOR_KEYS = ['forma', 'h2h', 'local', 'xg', 'motivacion', 'bajas', 'cuotas'];
+const VALID_WINNERS = ['local', 'empate', 'visitante'] as const;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function toNumber(value: any, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function toPercent(value: any, fallback = 0) {
+  const num = toNumber(value, fallback);
+  const pct = num <= 1 ? num * 100 : num;
+  return Number(clamp(pct, 0, 100).toFixed(1));
+}
+
+function getExpectedGoals(value: any) {
+  if (typeof value === 'number') return Number(value.toFixed(2));
+  if (value && typeof value === 'object') {
+    const home = toNumber(value.home, 1.5);
+    const away = toNumber(value.away, 1);
+    return Number(((home + away) / 2).toFixed(2));
+  }
+  return Number(toNumber(value, 2.5).toFixed(2));
+}
+
+function normalizeScore(value: any, fallback: string) {
+  const score = String(value || '').trim();
+  return /^\d+\s*-\s*\d+$/.test(score) ? score.replace(/\s+/g, '') : fallback;
+}
+
+function normalizeWinnerKey(parsed: any, pLocal: number, pEmpate: number, pVisitante: number) {
+  if (VALID_WINNERS.includes(parsed.winner_key)) return parsed.winner_key;
+  const sorted = [
+    { val: pLocal, winner: 'local' as const },
+    { val: pEmpate, winner: 'empate' as const },
+    { val: pVisitante, winner: 'visitante' as const }
+  ].sort((a, b) => b.val - a.val);
+  return sorted[0].winner;
+}
+
+function normalizeFactors(factors: any, probabilities: any, impliedProbability: any) {
+  const source = factors && typeof factors === 'object' ? factors : {};
+  const fallback = {
+    forma: toPercent(probabilities?.home_win, 50),
+    h2h: 50,
+    local: 50,
+    xg: 50,
+    motivacion: 50,
+    bajas: 50,
+    cuotas: toPercent(impliedProbability, 50)
+  };
+
+  return Object.fromEntries(
+    FACTOR_KEYS.map((key) => [key, Math.round(toPercent(source[key], fallback[key as keyof typeof fallback]))])
+  );
+}
+
+function normalizeBetType(bestBet: any, betType: any) {
+  const original = String(betType || '').toLowerCase();
+  const bestBetLower = String(bestBet || '').toLowerCase();
+  const text = `${original} ${bestBetLower}`;
+
+  if (text.includes('over') || text.includes('under') || text.includes('goles')) return 'over_under';
+  if (text.includes('btts') || text.includes('ambos')) return 'btts';
+  if (text.includes('doble') || text.includes('oportunidad')) return 'doble_oportunidad';
+  if (text.includes('asiatico') || text.includes('asiático') || text.includes('handicap')) return 'asiatico';
+  if (text.includes('victoria') || text.includes('ganador') || text.includes('1x2')) return '1x2';
+  return original || 'unknown';
+}
+
+function normalizeYesNo(value: any, bttsPct: number) {
+  const text = String(value || '').trim().toLowerCase();
+  if (['si', 'sí', 'yes', 'btts'].includes(text)) return 'Sí';
+  if (['no', 'false'].includes(text)) return 'No';
+  return bttsPct >= 50 ? 'Sí' : 'No';
+}
+
+function normalizeOverUnder(value: any, overPct: number) {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('under')) return 'Under 2.5';
+  if (text.includes('over')) return 'Over 2.5';
+  return overPct >= 50 ? 'Over 2.5' : 'Under 2.5';
+}
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +104,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El partido es requerido' }, { status: 400 });
     }
 
-    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
     const todayStr = formatter.format(new Date());
 
     const { data: usage } = await supabaseServer
@@ -27,194 +119,74 @@ export async function POST(request: Request) {
       .eq('date', todayStr)
       .single();
 
-    if (user.role !== 'admin') {
-      if (usage && usage.count >= 3) {
-        return NextResponse.json({ error: 'Has usado tus 3 análisis de hoy' }, { status: 429 });
-      }
+    if (user.role !== 'admin' && usage && usage.count >= 3) {
+      return NextResponse.json({ error: 'Has usado tus 3 análisis de hoy' }, { status: 429 });
     }
 
-    const model = await getModelForToday();
-    
+    const model = ACTIVE_AI_MODEL;
+
     const { data: weightsData } = await supabaseServer
       .from('system_weights')
       .select('weights')
       .eq('id', model)
       .single();
-    
-    const weights = weightsData?.weights || null;
 
-    // Generación síncrona (ahora con 60s de timeout en Vercel)
+    const weights = weightsData?.weights || null;
     const aiResponse = await generateAnalysis(match, model, weights);
-    
     const parsed = parseAnalysisJSON(aiResponse.text);
+
     if (!parsed) {
       return NextResponse.json({ error: 'Error al procesar el análisis de la IA. Por favor, reintenta.' }, { status: 500 });
     }
 
-    // Logging mejorado
-    console.error('DEBUG: Respuesta de Claude parseada:', JSON.stringify(parsed));
-    console.error('DEBUG: Campos - over_under:', parsed.over_under, 'both_teams_score:', parsed.both_teams_score);
-    console.error('DEBUG: Campos vacíos detectados');
-
-    
-    // Derivar campos faltantes
-    if (!parsed.over_under && parsed.probabilities) {
-      parsed.over_under = parsed.probabilities.over_2_5 > 0.5 ? "Over 2.5" : "Under 2.5";
-    }
-    if (!parsed.both_teams_score && parsed.probabilities) {
-      parsed.both_teams_score = parsed.probabilities.btts > 0.5 ? "Sí" : "No";
-    }
-    if (!parsed.factors) {
-      parsed.factors = {
-        forma: Math.round((parsed.probabilities?.home_win || 0.5) * 100),
-        h2h: 75,
-        local: 80,
-        xg: 78,
-        motivacion: 82,
-        bajas: 60,
-        cuotas: Math.round((parsed.implied_probability || 0.5) * 100)
-      };
-    }
-    if (!parsed.winner_key && parsed.probabilities) {
-      const p = parsed.probabilities;
-      // Convertir a porcentaje si son decimales
-      const homeWin = p.home_win > 1 ? p.home_win : p.home_win * 100;
-      const draw = p.draw > 1 ? p.draw : p.draw * 100;
-      const awayWin = p.away_win > 1 ? p.away_win : p.away_win * 100;
-      console.error('VALORES PRE-SORT:', {
-        homeWinRaw: p.home_win,
-        drawRaw: p.draw,
-        awayWinRaw: p.away_win,
-        homeWinNorm: homeWin,
-        drawNorm: draw,
-        awayWinNorm: awayWin,
-        typeof_homeWin: typeof homeWin,
-        typeof_draw: typeof draw,
-        typeof_awayWin: typeof awayWin
-      });
-
-      const sorted = [
-        { val: homeWin, winner: 'local' },
-        { val: draw, winner: 'empate' },
-        { val: awayWin, winner: 'visitante' }
-      ].sort((a, b) => b.val - a.val);
-
-      console.error('DESPUÉS DEL SORT:', {
-        sorted: sorted.map(s => ({ val: s.val, winner: s.winner })),
-        winner_selected: sorted[0].winner
-      });
-
-      parsed.winner_key = sorted[0].winner;
-    }
-
-    console.error('WINNER_KEY DEBUG:', {
-      homeWin: (parsed.probabilities?.home_win || 0) > 1 ? parsed.probabilities?.home_win : (parsed.probabilities?.home_win || 0) * 100,
-      draw: (parsed.probabilities?.draw || 0) > 1 ? parsed.probabilities?.draw : (parsed.probabilities?.draw || 0) * 100,
-      awayWin: (parsed.probabilities?.away_win || 0) > 1 ? parsed.probabilities?.away_win : (parsed.probabilities?.away_win || 0) * 100,
-      calculatedWinner: parsed.winner_key
-    });
-
-    // 2. VALIDAR DESPUÉS
-    if (parsed.winner_key === 'over' || parsed.winner_key === 'under') {
-      parsed.winner_key = 'empate';
-    }
-    const validWinners = ['local', 'empate', 'visitante'];
-    if (!validWinners.includes(parsed.winner_key)) {
-      parsed.winner_key = 'empate';
-    }
-
-    // Derivar campos faltantes
-    if (!parsed.score_1 || !parsed.score_2) {
-      const homeGoals = Math.round(parsed.goals_expected?.home || 1.5);
-      const awayGoals = Math.round(parsed.goals_expected?.away || 0.8);
-      parsed.score_1 = `${homeGoals}-${awayGoals}`;
-      parsed.score_2 = `${homeGoals > 0 ? homeGoals - 1 : 0}-${awayGoals > 0 ? awayGoals - 1 : 0}`;
-    }
-
-    if (!parsed.avg_goals_h2h) {
-      const totalGoalsExpected = (parsed.goals_expected?.home || 1.5) + (parsed.goals_expected?.away || 0.8);
-      parsed.avg_goals_h2h = parseFloat(totalGoalsExpected.toFixed(2));
-    }
-
-    // Convertir goals_expected a número
-    let goalsExpectedValue = 0;
-    if (typeof parsed.goals_expected === 'number') {
-      goalsExpectedValue = parsed.goals_expected;
-    } else if (typeof parsed.goals_expected === 'object' && parsed.goals_expected?.home) {
-      goalsExpectedValue = (Number(parsed.goals_expected.home) + Number(parsed.goals_expected.away)) / 2;
-    } else {
-      goalsExpectedValue = Number(parsed.goals_expected || 0);
-    }
-
-    // Las probabilidades de Claude vienen en decimal (0-1)
-    // NO multiplicar si ya están entre 0-100
-    const homeWin = parsed.probabilities?.home_win || parsed.prob_local || 0;
-    const draw = parsed.probabilities?.draw || parsed.prob_empate || 0;
-    const awayWin = parsed.probabilities?.away_win || parsed.prob_visitante || 0;
-
-    // Si son decimales (menores a 2), multiplicar por 100
-    const pLocalRaw = homeWin > 2 ? homeWin : homeWin * 100;
-    const pEmpateRaw = draw > 2 ? draw : draw * 100;
-    const pVisitanteRaw = awayWin > 2 ? awayWin : awayWin * 100;
-
-    // Determinar bet_type basado en best_bet
-    let final_bet_type = parsed.bet_type || 'unknown';
-    const bestBetLower = (parsed.best_bet || '').toLowerCase();
-
-    if (bestBetLower.includes('over') || bestBetLower.includes('under') || bestBetLower.includes('goles')) {
-      final_bet_type = 'over_under';
-    } else if (bestBetLower.includes('btts') || bestBetLower.includes('ambos')) {
-      final_bet_type = 'btts';
-    } else if (bestBetLower.includes('victoria') || bestBetLower.includes('ganador') || bestBetLower.includes('1x2')) {
-      final_bet_type = '1x2';
-    } else if (bestBetLower.includes('doble') || bestBetLower.includes('oportunidad')) {
-      final_bet_type = 'doble_oportunidad';
-    } else if (bestBetLower.includes('asiático') || bestBetLower.includes('handicap')) {
-      final_bet_type = 'asiatico';
-    }
+    const probabilities = parsed.probabilities || {};
+    const pLocalRaw = toPercent(probabilities.home_win ?? parsed.prob_local, 0);
+    const pEmpateRaw = toPercent(probabilities.draw ?? parsed.prob_empate, 0);
+    const pVisitanteRaw = toPercent(probabilities.away_win ?? parsed.prob_visitante, 0);
+    const overPct = toPercent(probabilities.over_2_5, 0);
+    const bttsPct = toPercent(probabilities.btts, 0);
+    const goalsExpectedValue = getExpectedGoals(parsed.goals_expected);
+    const avgGoalsH2h = toNumber(parsed.avg_goals_h2h, goalsExpectedValue);
+    const homeGoals = Math.max(0, Math.round(goalsExpectedValue));
+    const awayGoals = Math.max(0, Math.round(Math.max(0, avgGoalsH2h - homeGoals)));
+    const score1 = normalizeScore(parsed.score_1, `${homeGoals}-${awayGoals}`);
+    const score2 = normalizeScore(parsed.score_2, `${Math.max(0, homeGoals - 1)}-${awayGoals}`);
+    const winnerKey = normalizeWinnerKey(parsed, pLocalRaw, pEmpateRaw, pVisitanteRaw);
+    const overUnder = normalizeOverUnder(parsed.over_under, overPct);
 
     const analysisData = {
       user_id: user.sub,
       match_name: match,
-      league: parsed.league,
+      league: String(parsed.league || 'Liga no identificada'),
       analysis_date: new Date().toISOString(),
       ai_model: model,
       ai_model_version: aiResponse.version,
-      winner: parsed.winner,
-      winner_key: parsed.winner_key,
-      prob_local: parseFloat(pLocalRaw.toFixed(1)),
-      prob_empate: parseFloat(pEmpateRaw.toFixed(1)),
-      prob_visitante: parseFloat(pVisitanteRaw.toFixed(1)),
-      score_1: parsed.score_1,
-      prob_1: Math.round((parsed.prob_1 || 0) * (parsed.prob_1 <= 1 ? 100 : 1)),
-      score_2: parsed.score_2,
-      prob_2: Math.round((parsed.prob_2 || 0) * (parsed.prob_2 <= 1 ? 100 : 1)),
-      bet_type: final_bet_type,
-      best_bet: parsed.best_bet,
-      confidence_pct: Number(parsed.confidence_pct || 0),
-      factors: parsed.factors,
-      analysis: parsed.analysis,
-      final_reasoning: parsed.final_reasoning,
+      winner: String(parsed.winner || (winnerKey === 'empate' ? 'Empate' : winnerKey)),
+      winner_key: winnerKey,
+      prob_local: pLocalRaw,
+      prob_empate: pEmpateRaw,
+      prob_visitante: pVisitanteRaw,
+      score_1: score1,
+      prob_1: Math.round(toPercent(parsed.prob_1, 0)),
+      score_2: score2,
+      prob_2: Math.round(toPercent(parsed.prob_2, 0)),
+      bet_type: normalizeBetType(parsed.best_bet, parsed.bet_type),
+      best_bet: String(parsed.best_bet || overUnder),
+      confidence_pct: Math.round(toPercent(parsed.confidence_pct, 50)),
+      factors: normalizeFactors(parsed.factors, probabilities, parsed.implied_probability),
+      analysis: parsed.analysis || {},
+      final_reasoning: String(parsed.final_reasoning || parsed.best_bet_reason || 'Análisis generado con el motor GPT-4o.'),
       weights_at_time: weights,
       goals_expected: goalsExpectedValue,
-      avg_goals_h2h: Number(parsed.avg_goals_h2h || 0),
-      goals_tendency: parsed.goals_tendency,
-      both_teams_score: parsed.both_teams_score,
-      over_under: parsed.over_under,
-      winner_reason: parsed.winner_reason,
-      best_bet_reason: parsed.best_bet_reason,
-      recommended_analysis: parsed.recommended_analysis,
+      avg_goals_h2h: Number(avgGoalsH2h.toFixed(2)),
+      goals_tendency: parsed.goals_tendency || null,
+      both_teams_score: normalizeYesNo(parsed.both_teams_score, bttsPct),
+      over_under: overUnder,
+      winner_reason: parsed.winner_reason || null,
+      best_bet_reason: parsed.best_bet_reason || null,
+      recommended_analysis: parsed.recommended_analysis || null,
       status: 'pending'
     };
-
-    console.error('DATOS A GUARDAR:', {
-      best_bet: parsed.best_bet,
-      winner_key: analysisData.winner_key,
-      score_1: analysisData.score_1,
-      score_2: analysisData.score_2,
-      over_under: analysisData.over_under,
-      both_teams_score: analysisData.both_teams_score
-    });
 
     const { data: insertedAnalysis, error: insertError } = await supabaseServer
       .from('analyses')

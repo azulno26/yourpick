@@ -17,7 +17,7 @@ export default function StatsCard({ title, value, suffix = '', className = '', a
   useEffect(() => {
     if (!animate) return;
     
-    let start = 0;
+    const start = 0;
     const end = value;
     if (start === end) {
       setDisplayValue(end);

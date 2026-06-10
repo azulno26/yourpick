@@ -28,7 +28,7 @@ export default function AdminAnalysisList({ analyses }: AdminAnalysisListProps) 
               <th className="p-4 md:p-6 font-medium">Usuario</th>
               <th className="p-4 md:p-6 font-medium">Fecha</th>
               <th className="p-4 md:p-6 font-medium">Partido</th>
-              <th className="p-4 md:p-6 font-medium">Modelo</th>
+              <th className="p-4 md:p-6 font-medium">Motor</th>
               <th className="p-4 md:p-6 font-medium">Predicción</th>
               <th className="p-4 md:p-6 font-medium">Real</th>
               <th className="p-4 md:p-6 font-medium text-center">Aciertos</th>
@@ -61,8 +61,8 @@ export default function AdminAnalysisList({ analyses }: AdminAnalysisListProps) 
                     <div className="text-[10px] font-mono text-muted uppercase mt-0.5">{a.league}</div>
                   </td>
                   <td className="p-4 md:p-6">
-                    <Badge variant={a.ai_model === 'claude' ? 'purple' : 'green'}>
-                      {a.ai_model === 'claude' ? '⚡ CLAUDE' : '🤖 GPT'}
+                    <Badge variant={a.ai_model === 'gpt' ? 'green' : 'muted'}>
+                      {a.ai_model === 'gpt' ? 'GPT-4o' : 'Legacy'}
                     </Badge>
                   </td>
                   <td className="p-4 md:p-6 max-w-[150px] truncate" title={a.best_bet}>
