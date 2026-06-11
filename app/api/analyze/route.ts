@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const FACTOR_KEYS = ['forma', 'h2h', 'local', 'xg', 'motivacion', 'bajas', 'cuotas'];
 const VALID_WINNERS = ['local', 'empate', 'visitante'] as const;
+const DISABLE_DAILY_LIMITS = true;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -36,6 +37,24 @@ function getExpectedGoals(value: any) {
 function normalizeScore(value: any, fallback: string) {
   const score = String(value || '').trim();
   return /^\d+\s*-\s*\d+$/.test(score) ? score.replace(/\s+/g, '') : fallback;
+}
+
+function scoreWinnerKey(score: string) {
+  const [home, away] = score.split('-').map((part) => Number(part));
+  if (home > away) return 'local';
+  if (away > home) return 'visitante';
+  return 'empate';
+}
+
+function scoreTotal(score: string) {
+  return score.split('-').reduce((sum, part) => sum + Number(part), 0);
+}
+
+function buildScoresForWinner(winnerKey: 'local' | 'empate' | 'visitante', totalGoals: number) {
+  const lowScoring = totalGoals <= 2.1;
+  if (winnerKey === 'local') return lowScoring ? ['1-0', '2-0'] : ['2-1', '2-0'];
+  if (winnerKey === 'visitante') return lowScoring ? ['0-1', '0-2'] : ['1-2', '0-2'];
+  return lowScoring ? ['0-0', '1-1'] : ['1-1', '2-2'];
 }
 
 function normalizeWinnerKey(parsed: any, pLocal: number, pEmpate: number, pVisitante: number) {
@@ -92,6 +111,21 @@ function normalizeOverUnder(value: any, overPct: number) {
   return overPct >= 50 ? 'Over 2.5' : 'Under 2.5';
 }
 
+function isNegativeEv(parsed: any) {
+  const ev = parsed.expected_value;
+  if (typeof ev === 'number') return ev < 0;
+  const finalText = `${parsed.final_reasoning || ''} ${parsed.best_bet_reason || ''}`.toLowerCase();
+  return finalText.includes('ev negativo') || finalText.includes('valor esperado es negativo') || finalText.includes('valor esperado negativo');
+}
+
+function normalizeWinnerName(parsedWinner: any, winnerKey: 'local' | 'empate' | 'visitante', localTeam: string, awayTeam: string) {
+  const winner = String(parsedWinner || '').trim();
+  if (!winner || winner.toLowerCase() === 'local') return winnerKey === 'local' ? localTeam : winnerKey === 'visitante' ? awayTeam : 'Empate';
+  if (winner.toLowerCase() === 'visitante') return winnerKey === 'visitante' ? awayTeam : winnerKey === 'local' ? localTeam : 'Empate';
+  if (winner.toLowerCase() === 'empate') return 'Empate';
+  return winner;
+}
+
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -119,7 +153,7 @@ export async function POST(request: Request) {
       .eq('date', todayStr)
       .single();
 
-    if (user.role !== 'admin' && usage && usage.count >= 3) {
+    if (!DISABLE_DAILY_LIMITS && user.role !== 'admin' && usage && usage.count >= 3) {
       return NextResponse.json({ error: 'Has usado tus 3 análisis de hoy' }, { status: 429 });
     }
 
@@ -147,12 +181,33 @@ export async function POST(request: Request) {
     const bttsPct = toPercent(probabilities.btts, 0);
     const goalsExpectedValue = getExpectedGoals(parsed.goals_expected);
     const avgGoalsH2h = toNumber(parsed.avg_goals_h2h, goalsExpectedValue);
-    const homeGoals = Math.max(0, Math.round(goalsExpectedValue));
-    const awayGoals = Math.max(0, Math.round(Math.max(0, avgGoalsH2h - homeGoals)));
-    const score1 = normalizeScore(parsed.score_1, `${homeGoals}-${awayGoals}`);
-    const score2 = normalizeScore(parsed.score_2, `${Math.max(0, homeGoals - 1)}-${awayGoals}`);
     const winnerKey = normalizeWinnerKey(parsed, pLocalRaw, pEmpateRaw, pVisitanteRaw);
-    const overUnder = normalizeOverUnder(parsed.over_under, overPct);
+    const [localTeamRaw, awayTeamRaw] = String(match).split(/ vs | - | v /i);
+    const localTeam = (localTeamRaw || 'Local').trim();
+    const awayTeam = (awayTeamRaw || 'Visitante').trim();
+    const suggestedScores = buildScoresForWinner(winnerKey, goalsExpectedValue);
+    let score1 = normalizeScore(parsed.score_1, suggestedScores[0]);
+    let score2 = normalizeScore(parsed.score_2, suggestedScores[1]);
+    if (scoreWinnerKey(score1) !== winnerKey) score1 = suggestedScores[0];
+    if (scoreWinnerKey(score2) !== winnerKey && winnerKey !== 'empate') score2 = suggestedScores[1];
+
+    let overUnder = normalizeOverUnder(parsed.over_under, overPct);
+    const lowGoalProfile = goalsExpectedValue < 2.2 && avgGoalsH2h < 2.2 && bttsPct < 50 && scoreTotal(score1) <= 2;
+    if (lowGoalProfile) overUnder = 'Under 2.5';
+
+    let betType = normalizeBetType(parsed.best_bet, parsed.bet_type);
+    let bestBet = String(parsed.best_bet || overUnder);
+    let confidencePct = Math.round(toPercent(parsed.confidence_pct, 50));
+    let finalReasoning = String(parsed.final_reasoning || parsed.best_bet_reason || 'Análisis generado con el motor GPT-4o.');
+    let bestBetReason = parsed.best_bet_reason || null;
+    const negativeEv = isNegativeEv(parsed);
+    if (negativeEv && betType === '1x2') {
+      betType = 'over_under';
+      bestBet = overUnder;
+      confidencePct = Math.min(confidencePct, 45);
+      bestBetReason = 'El pick 1X2 fue descartado por valor esperado negativo; se prioriza el mercado de goles por coherencia con el perfil del partido.';
+      finalReasoning = `${finalReasoning} Ajuste de control: se descarta la apuesta 1X2 por valor esperado negativo y se recomienda ${overUnder} como alternativa más conservadora.`;
+    }
 
     const analysisData = {
       user_id: user.sub,
@@ -161,21 +216,21 @@ export async function POST(request: Request) {
       analysis_date: new Date().toISOString(),
       ai_model: model,
       ai_model_version: aiResponse.version,
-      winner: String(parsed.winner || (winnerKey === 'empate' ? 'Empate' : winnerKey)),
+      winner: normalizeWinnerName(parsed.winner, winnerKey, localTeam, awayTeam),
       winner_key: winnerKey,
       prob_local: pLocalRaw,
       prob_empate: pEmpateRaw,
       prob_visitante: pVisitanteRaw,
       score_1: score1,
-      prob_1: Math.round(toPercent(parsed.prob_1, 0)),
+      prob_1: Math.max(1, Math.round(toPercent(parsed.prob_1, 8))),
       score_2: score2,
-      prob_2: Math.round(toPercent(parsed.prob_2, 0)),
-      bet_type: normalizeBetType(parsed.best_bet, parsed.bet_type),
-      best_bet: String(parsed.best_bet || overUnder),
-      confidence_pct: Math.round(toPercent(parsed.confidence_pct, 50)),
+      prob_2: Math.max(1, Math.round(toPercent(parsed.prob_2, 5))),
+      bet_type: betType,
+      best_bet: bestBet,
+      confidence_pct: confidencePct,
       factors: normalizeFactors(parsed.factors, probabilities, parsed.implied_probability),
       analysis: parsed.analysis || {},
-      final_reasoning: String(parsed.final_reasoning || parsed.best_bet_reason || 'Análisis generado con el motor GPT-4o.'),
+      final_reasoning: finalReasoning,
       weights_at_time: weights,
       goals_expected: goalsExpectedValue,
       avg_goals_h2h: Number(avgGoalsH2h.toFixed(2)),
@@ -183,7 +238,7 @@ export async function POST(request: Request) {
       both_teams_score: normalizeYesNo(parsed.both_teams_score, bttsPct),
       over_under: overUnder,
       winner_reason: parsed.winner_reason || null,
-      best_bet_reason: parsed.best_bet_reason || null,
+      best_bet_reason: bestBetReason,
       recommended_analysis: parsed.recommended_analysis || null,
       status: 'pending'
     };
@@ -199,16 +254,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al guardar el análisis en la base de datos' }, { status: 500 });
     }
 
-    if (usage) {
-      await supabaseServer
-        .from('daily_usage')
-        .update({ count: usage.count + 1 })
-        .eq('user_id', user.sub)
-        .eq('date', todayStr);
-    } else {
-      await supabaseServer
-        .from('daily_usage')
-        .insert({ user_id: user.sub, date: todayStr, count: 1 });
+    if (!DISABLE_DAILY_LIMITS) {
+      if (usage) {
+        await supabaseServer
+          .from('daily_usage')
+          .update({ count: usage.count + 1 })
+          .eq('user_id', user.sub)
+          .eq('date', todayStr);
+      } else {
+        await supabaseServer
+          .from('daily_usage')
+          .insert({ user_id: user.sub, date: todayStr, count: 1 });
+      }
     }
 
     return NextResponse.json(insertedAnalysis);

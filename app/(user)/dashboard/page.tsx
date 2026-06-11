@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     .single();
 
   const countToday = usage?.count || 0;
-  const limitsReached = countToday >= 3;
+  const limitsReached = false;
 
   // Obtener análisis del usuario
   const { data: analyses } = await supabaseServer
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
         <span className="font-mono text-xs uppercase text-cyan mb-2 tracking-widest font-bold">CUPO DEL DÍA</span>
         <div className="flex items-baseline mb-5">
           <span className="font-bebas text-7xl text-text leading-none">{countToday}</span>
-          <span className="font-bebas text-4xl text-muted ml-1">/3</span>
+          <span className="font-bebas text-4xl text-muted ml-1">/∞</span>
         </div>
         <Link href="/analizar" className="w-full max-w-[280px]">
           <Button 
