@@ -89,6 +89,13 @@ function normalizeBetType(bestBet: any, betType: any) {
   const bestBetLower = String(bestBet || '').toLowerCase();
   const text = `${original} ${bestBetLower}`;
 
+  if (
+    text.includes('no apostar') ||
+    text.includes('sin apuesta') ||
+    text.includes('abstener') ||
+    text.includes('avoid') ||
+    text.includes('no bet')
+  ) return 'no_bet';
   if (text.includes('over') || text.includes('under') || text.includes('goles')) return 'over_under';
   if (text.includes('btts') || text.includes('ambos')) return 'btts';
   if (text.includes('doble') || text.includes('oportunidad')) return 'doble_oportunidad';
@@ -114,8 +121,22 @@ function normalizeOverUnder(value: any, overPct: number) {
 function isNegativeEv(parsed: any) {
   const ev = parsed.expected_value;
   if (typeof ev === 'number') return ev < 0;
+  if (typeof ev === 'string') {
+    const evNumber = Number(ev.replace(',', '.').match(/-?\d+(\.\d+)?/)?.[0]);
+    if (Number.isFinite(evNumber) && evNumber < 0) return true;
+  }
+
   const finalText = `${parsed.final_reasoning || ''} ${parsed.best_bet_reason || ''}`.toLowerCase();
-  return finalText.includes('ev negativo') || finalText.includes('valor esperado es negativo') || finalText.includes('valor esperado negativo');
+  return (
+    finalText.includes('ev negativo') ||
+    finalText.includes('valor esperado es negativo') ||
+    finalText.includes('valor esperado negativo') ||
+    finalText.includes('valor esperado es ligeramente negativo') ||
+    finalText.includes('no ofrece un valor positivo') ||
+    finalText.includes('no es favorable') ||
+    finalText.includes('sin valor') ||
+    finalText.includes('abstenerse')
+  );
 }
 
 function normalizeWinnerName(parsedWinner: any, winnerKey: 'local' | 'empate' | 'visitante', localTeam: string, awayTeam: string) {
@@ -201,12 +222,12 @@ export async function POST(request: Request) {
     let finalReasoning = String(parsed.final_reasoning || parsed.best_bet_reason || 'Análisis generado con el motor GPT-4o.');
     let bestBetReason = parsed.best_bet_reason || null;
     const negativeEv = isNegativeEv(parsed);
-    if (negativeEv && betType === '1x2') {
-      betType = 'over_under';
-      bestBet = overUnder;
-      confidencePct = Math.min(confidencePct, 45);
-      bestBetReason = 'El pick 1X2 fue descartado por valor esperado negativo; se prioriza el mercado de goles por coherencia con el perfil del partido.';
-      finalReasoning = `${finalReasoning} Ajuste de control: se descarta la apuesta 1X2 por valor esperado negativo y se recomienda ${overUnder} como alternativa más conservadora.`;
+    if (negativeEv || betType === 'no_bet') {
+      betType = 'no_bet';
+      bestBet = 'No apostar';
+      confidencePct = Math.min(confidencePct, 35);
+      bestBetReason = 'No se recomienda apostar: el valor esperado no es positivo o la evidencia disponible no justifica un pick rentable.';
+      finalReasoning = `${finalReasoning} Ajuste de control: no se emite apuesta recomendada porque no hay valor positivo suficiente.`;
     }
 
     const analysisData = {

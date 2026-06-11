@@ -45,7 +45,9 @@ export function evaluateAnalysis(analysis: Analysis, real_score: string) {
   const betTypeLower = (analysis.bet_type || '').toLowerCase();
   const bestBetUpper = (analysis.best_bet || '').toUpperCase();
 
-  if (betTypeLower.includes('ganador directo') || betTypeLower.includes('1x2')) {
+  if (betTypeLower.includes('no_bet') || bestBetUpper.includes('NO APOSTAR')) {
+    sections_hit['Apuesta'] = true;
+  } else if (betTypeLower.includes('ganador directo') || betTypeLower.includes('1x2')) {
     sections_hit['Apuesta'] = sections_hit['Ganador'];
   } else if (betTypeLower.includes('doble oportunidad')) {
     if (bestBetUpper.includes('1X')) sections_hit['Apuesta'] = realWinner !== 'visitante';

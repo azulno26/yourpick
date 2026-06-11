@@ -82,6 +82,7 @@ export default function AnalysisResult({ analysis, showSaveButton = false, onSav
     low: { text: 'text-red', bg: 'bg-red' }
   };
   const conf = confPct >= 70 ? confColors.high : confPct >= 55 ? confColors.mid : confColors.low;
+  const isNoBet = analysis.bet_type === 'no_bet' || analysis.best_bet === 'No apostar';
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setTimeout(() => setMounted(true), 100); }, []);
@@ -175,11 +176,11 @@ export default function AnalysisResult({ analysis, showSaveButton = false, onSav
         </div>
       </div>
 
-      <Card className="border-cyan/30 relative overflow-hidden animate-slide-up shadow-[0_4px_30px_rgba(0,212,255,0.05)]" style={staggerDelay(6)}>
+      <Card className={`${isNoBet ? 'border-yellow/30' : 'border-cyan/30'} relative overflow-hidden animate-slide-up shadow-[0_4px_30px_rgba(0,212,255,0.05)]`} style={staggerDelay(6)}>
         <div className="absolute top-0 right-0 w-32 h-32 bg-cyan/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
         <div className="relative z-10">
-          <div className="font-mono text-cyan text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
-            <span>💰</span> Apuesta Recomendada
+          <div className={`font-mono ${isNoBet ? 'text-yellow' : 'text-cyan'} text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2`}>
+            <span>💰</span> {isNoBet ? 'Sin Apuesta Recomendada' : 'Apuesta Recomendada'}
           </div>
           <div className="text-sm text-muted uppercase tracking-wide mb-1 font-medium">
             {analysis.bet_type}

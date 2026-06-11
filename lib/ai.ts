@@ -15,12 +15,13 @@ REGLAS DE COMPATIBILIDAD DEL SISTEMA
 Debes responder un solo objeto JSON valido y completo.
 Usa siempre estos valores normalizados:
 - winner_key: "local", "empate" o "visitante".
-- bet_type: "1x2", "over_under", "btts", "doble_oportunidad" o "asiatico".
+- bet_type: "1x2", "over_under", "btts", "doble_oportunidad", "asiatico" o "no_bet".
 - probabilities.*: numeros de 0 a 100, no decimales 0-1.
 - prob_1, prob_2, confidence_pct y factors.*: numeros de 0 a 100.
 - both_teams_score: "Sí" o "No".
 - over_under: "Over 2.5" o "Under 2.5".
 - score_1 y score_2: formato "N-N".
+Si ninguna apuesta tiene valor esperado positivo, usa bet_type "no_bet", best_bet "No apostar" y confidence_pct maximo 35.
 No agregues texto fuera del JSON.
 `;
 
